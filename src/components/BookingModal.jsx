@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { STATUS, STATUS_LABEL, STATUS_COLOR, HOURLY_COLOR, STAY_TYPE, getActiveBooking } from '../data/roomData'
+import { STATUS, STATUS_LABEL, STATUS_COLOR, HOURLY_COLOR, STAY_TYPE, getActiveBooking, getRoomStatusOnDate, getBookingOnDate } from '../data/roomData'
 import { canEdit, canCancel } from '../data/users'
 import { PROVINCES } from '../data/provinces'
 import { todayLocal, addDaysLocal } from '../utils/date'
@@ -71,13 +71,19 @@ export default function BookingModal({
   room, currentUser, onClose, initialCheckIn,
   onBook, onCheckIn, onCheckOut, onCancel, onEdit, onExtend, onCleaned,
 }) {
-  const activeBooking = getActiveBooking(room)
+  // ถ้าคลิกมาจาก Timeline cell → ดูสถานะของวันนั้น ไม่ใช่วันนี้
+  const effectiveStatus  = initialCheckIn
+    ? getRoomStatusOnDate(room, initialCheckIn)
+    : room.status
+  const activeBooking = initialCheckIn
+    ? (getBookingOnDate(room, initialCheckIn) ?? getActiveBooking(room))
+    : getActiveBooking(room)
 
   // pre-fill form ด้วย activeBooking เฉพาะเมื่อห้องเป็น BOOKED/OCCUPIED จริง
   // ถ้าห้องเป็น AVAILABLE (แม้มีการจองล่วงหน้า) ให้ใช้ default form เปล่าๆ
-  const isRoomActive = room.status === STATUS.BOOKED
-    || room.status === STATUS.OCCUPIED
-    || room.status === STATUS.LATE_CHECKOUT
+  const isRoomActive = effectiveStatus === STATUS.BOOKED
+    || effectiveStatus === STATUS.OCCUPIED
+    || effectiveStatus === STATUS.LATE_CHECKOUT
 
   const [form, setForm] = useState(() => {
     const base = getDefaultForm()
@@ -339,11 +345,11 @@ export default function BookingModal({
   }
 
   const isHourlyBooking = activeBooking?.stayType === STAY_TYPE.HOURLY
-  const isLateCheckout  = room.status === STATUS.LATE_CHECKOUT
+  const isLateCheckout  = effectiveStatus === STATUS.LATE_CHECKOUT
   const statusColor = isHourlyBooking
-    ? (HOURLY_COLOR[room.status] || STATUS_COLOR[room.status])
-    : STATUS_COLOR[room.status]
-  const statusLabel = STATUS_LABEL[room.status]
+    ? (HOURLY_COLOR[effectiveStatus] || STATUS_COLOR[effectiveStatus])
+    : STATUS_COLOR[effectiveStatus]
+  const statusLabel = STATUS_LABEL[effectiveStatus]
 
   const pendingBookings = (room.bookings || []).filter(b =>
     b.id !== activeBooking?.id && b.status === STATUS.BOOKED
@@ -375,7 +381,7 @@ export default function BookingModal({
         <div className="modal-body">
 
           {/* ===== ว่าง: ฟอร์มจอง ===== */}
-          {room.status === STATUS.AVAILABLE && (
+          {effectiveStatus === STATUS.AVAILABLE && (
             <div className="action-section">
               {editable ? (
                 <>
@@ -393,7 +399,7 @@ export default function BookingModal({
           )}
 
           {/* ===== จองแล้ว / เข้าพักแล้ว / รอออก ===== */}
-          {(room.status === STATUS.BOOKED || room.status === STATUS.OCCUPIED || room.status === STATUS.LATE_CHECKOUT) && activeBooking && (
+          {(effectiveStatus === STATUS.BOOKED || effectiveStatus === STATUS.OCCUPIED || effectiveStatus === STATUS.LATE_CHECKOUT) && activeBooking && (
             <div className="action-section">
               <div className="section-header-row">
                 <h3 className="section-label">ข้อมูลผู้เข้าพัก</h3>
@@ -488,16 +494,16 @@ export default function BookingModal({
 
               {editable && (
                 <div className="modal-actions">
-                  {room.status === STATUS.BOOKED && (
+                  {effectiveStatus === STATUS.BOOKED && (
                     <button className="btn-success" onClick={handleCheckIn}>🔑 เช็คอิน (เข้าพัก)</button>
                   )}
-                  {(room.status === STATUS.OCCUPIED || room.status === STATUS.LATE_CHECKOUT) && (
+                  {(effectiveStatus === STATUS.OCCUPIED || effectiveStatus === STATUS.LATE_CHECKOUT) && (
                     <button className="btn-warning" onClick={handleCheckOut}>🚪 เช็คเอ้าท์</button>
                   )}
-                  {(room.status === STATUS.OCCUPIED || room.status === STATUS.LATE_CHECKOUT) && !isHourlyBooking && (
+                  {(effectiveStatus === STATUS.OCCUPIED || effectiveStatus === STATUS.LATE_CHECKOUT) && !isHourlyBooking && (
                     <button className="btn-extend" onClick={handleExtendDaily}>📅 ต่ออีก 1 คืน</button>
                   )}
-                  {(room.status === STATUS.OCCUPIED || room.status === STATUS.LATE_CHECKOUT) && isHourlyBooking && (
+                  {(effectiveStatus === STATUS.OCCUPIED || effectiveStatus === STATUS.LATE_CHECKOUT) && isHourlyBooking && (
                     <button className="btn-extend" onClick={handleExtendHourly}>⏱ ต่ออีก 1 ชั่วโมง</button>
                   )}
                   {canCancelThis && (
@@ -527,7 +533,7 @@ export default function BookingModal({
           )}
 
           {/* ===== Orphan state: OCCUPIED/BOOKED แต่ไม่มี booking ===== */}
-          {(room.status === STATUS.OCCUPIED || room.status === STATUS.BOOKED) && !activeBooking && (
+          {(effectiveStatus === STATUS.OCCUPIED || effectiveStatus === STATUS.BOOKED) && !activeBooking && (
             <div className="action-section">
               <div className="late-checkout-warning">
                 ⚠️ ห้องนี้แสดงสถานะ "{statusLabel}" แต่ไม่พบข้อมูลการจอง<br />
@@ -544,7 +550,7 @@ export default function BookingModal({
           )}
 
           {/* ===== ทำความสะอาด ===== */}
-          {room.status === STATUS.CLEANING && (
+          {effectiveStatus === STATUS.CLEANING && (
             <div className="action-section">
               <h3 className="section-label">กำลังทำความสะอาด</h3>
               <p className="cleaning-msg">ห้องนี้อยู่ระหว่างการทำความสะอาด กรุณารอสักครู่</p>
