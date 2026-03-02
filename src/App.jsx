@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from 'react'
 import { ZONES, computeRoomStatus, getRoomStatusOnDate, getBookingOnDate } from './data/roomData'
 import { canCancel } from './data/users'
 import { useSupabaseRooms } from './hooks/useSupabaseRooms'
+import { todayLocal } from './utils/date'
 import ResortZone from './components/ResortZone'
 import BuildingZone from './components/BuildingZone'
 import BookingModal from './components/BookingModal'
@@ -23,7 +24,7 @@ const TABS = [
 ]
 
 const AUTH_KEY = 'resort_auth'
-const todayStr = () => new Date().toISOString().split('T')[0]
+const todayStr = todayLocal
 
 function formatDateThai(dateStr) {
   if (!dateStr) return ''

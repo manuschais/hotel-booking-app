@@ -2,13 +2,10 @@ import { useState } from 'react'
 import { STATUS, STATUS_LABEL, STATUS_COLOR, HOURLY_COLOR, STAY_TYPE, getActiveBooking } from '../data/roomData'
 import { canEdit, canCancel } from '../data/users'
 import { PROVINCES } from '../data/provinces'
+import { todayLocal, addDaysLocal } from '../utils/date'
 
-// เพิ่ม N วันให้ date string
-function addDays(dateStr, n) {
-  const d = new Date(dateStr + 'T00:00:00')
-  d.setDate(d.getDate() + n)
-  return d.toISOString().split('T')[0]
-}
+const addDays  = addDaysLocal
+const todayStr = todayLocal
 
 // คำนวณจำนวนคืนจาก checkIn → checkOut
 function diffDays(checkIn, checkOut) {
@@ -18,8 +15,6 @@ function diffDays(checkIn, checkOut) {
   const diff = Math.round((b - a) / 86400000)
   return diff > 0 ? diff : 1
 }
-
-const todayStr = () => new Date().toISOString().split('T')[0]
 
 
 function getHourlyDefaults() {

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
-const todayStr = () => new Date().toISOString().split('T')[0]
+import { todayLocal } from '../utils/date'
+const todayStr = todayLocal
 
 export default function AdminDeleteModal({ onClose, onDelete, onResetAll }) {
   const [beforeDate, setBeforeDate] = useState(todayStr())

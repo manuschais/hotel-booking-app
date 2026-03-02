@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { STATUS_COLOR, HOURLY_COLOR, ZONES, getActiveBooking } from '../data/roomData'
+import { todayLocal, addDaysLocal } from '../utils/date'
 
 const ZONE_LABELS = {
   [ZONES.RESORT]:     '🏡 รีสอร์ท - บ้านหลัง',
@@ -7,15 +8,8 @@ const ZONE_LABELS = {
   [ZONES.BUILDING_B]: '🏢 ตึก B',
 }
 
-function addDays(dateStr, n) {
-  const d = new Date(dateStr + 'T00:00:00')
-  d.setDate(d.getDate() + n)
-  return d.toISOString().split('T')[0]
-}
-
-function todayStr() {
-  return new Date().toISOString().split('T')[0]
-}
+const addDays  = addDaysLocal
+const todayStr = todayLocal
 
 function formatShort(dateStr) {
   const d = new Date(dateStr + 'T00:00:00')

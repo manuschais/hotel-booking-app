@@ -16,7 +16,8 @@ const STATUS_BADGE_COLOR = {
   no_show:   '#d1d5db',
 }
 
-const todayStr = () => new Date().toISOString().split('T')[0]
+import { todayLocal } from '../utils/date'
+const todayStr = todayLocal
 
 export default function History({ searchBookings }) {
   const [query,    setQuery]    = useState('')

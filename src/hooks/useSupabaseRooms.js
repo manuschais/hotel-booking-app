@@ -4,6 +4,7 @@ import {
   generateAllRooms, computeRoomStatus, newBookingId,
   fromDbBooking, toDbBooking, STATUS,
 } from '../data/roomData'
+import { localDateStr } from '../utils/date'
 
 // ===== ประวัติย้อนหลังที่โหลดเพื่อแสดงใน timeline/date-picker =====
 const HISTORY_DAYS = 90
@@ -54,7 +55,7 @@ export function useSupabaseRooms() {
   const fetchBookings = useCallback(async () => {
     const cutoff = new Date()
     cutoff.setDate(cutoff.getDate() - HISTORY_DAYS)
-    const cutoffStr = cutoff.toISOString().split('T')[0]
+    const cutoffStr = localDateStr(cutoff)
 
     const [activeRes, recentRes] = await Promise.all([
       supabase.from('bookings').select('*').in('status', ['booked', 'occupied']),

@@ -1,3 +1,5 @@
+import { todayLocal } from '../utils/date'
+
 // Room status constants
 export const STATUS = {
   AVAILABLE:     'available',      // ว่าง
@@ -166,7 +168,7 @@ export function getActiveBooking(room) {
 
 // Compute room display status from bookings array (real-time)
 export function computeRoomStatus(room) {
-  const today = new Date().toISOString().split('T')[0]
+  const today = todayLocal()
   const nowTime = new Date().toTimeString().slice(0, 5) // 'HH:MM'
 
   // OCCUPIED / LATE_CHECKOUT: แขกเช็คอินแล้ว
@@ -202,7 +204,7 @@ export function computeRoomStatus(room) {
 // - future  → from bookings array
 // - past    → from bookings array (completed = occupied historically)
 export function getRoomStatusOnDate(room, date) {
-  const today = new Date().toISOString().split('T')[0]
+  const today = todayLocal()
 
   if (date === today) {
     return computeRoomStatus(room)
@@ -228,7 +230,7 @@ export function getRoomStatusOnDate(room, date) {
 
 // Get booking on a specific date (for tooltip/modal)
 export function getBookingOnDate(room, date) {
-  const today = new Date().toISOString().split('T')[0]
+  const today = todayLocal()
   if (date === today) return getActiveBooking(room)
 
   return (room.bookings || []).find(b => {
