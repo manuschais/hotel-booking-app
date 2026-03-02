@@ -157,8 +157,15 @@ function RoomRow({ room, dates, onRoomClick }) {
   const allBookings = room.bookings || []
 
   return (
-    <tr className="tl-room-row" onClick={() => onRoomClick(room)} title={`คลิกเพื่อจัดการห้อง ${room.number}`}>
-      <td className="tl-room-name">{room.number}</td>
+    <tr className="tl-room-row">
+      {/* ชื่อห้อง: คลิกเปิด modal ปกติ (ไม่ระบุวัน) */}
+      <td
+        className="tl-room-name"
+        onClick={() => onRoomClick(room)}
+        title={`คลิกเพื่อจัดการห้อง ${room.number}`}
+      >
+        {room.number}
+      </td>
       {dates.map(date => {
         // Daily booking covering this date (exclude checkOut day)
         const dailyBooking = allBookings.find(b => {
@@ -172,16 +179,27 @@ function RoomRow({ room, dates, onRoomClick }) {
           .filter(b => b.stayType === 'hourly' && b.checkIn === date)
           .sort((a, b) => (a.checkInTime || '').localeCompare(b.checkInTime || ''))
 
+        // ช่องว่าง: คลิกเพื่อจองพร้อมดึงวันที่เข้ามาเลย
         if (!dailyBooking && hourlyBookings.length === 0) {
           return (
-            <td key={date} className="tl-cell tl-cell-empty">
+            <td
+              key={date}
+              className="tl-cell tl-cell-empty tl-cell-clickable"
+              onClick={() => onRoomClick(room, date)}
+              title={`จองห้อง ${room.number} วันที่ ${date}`}
+            >
               <div className="tl-empty" />
             </td>
           )
         }
 
+        // ช่องที่มีการจอง: คลิกเปิด modal ปกติ
         return (
-          <td key={date} className={`tl-cell${hourlyBookings.length > 0 ? ' tl-cell-multi' : ''}`}>
+          <td
+            key={date}
+            className={`tl-cell${hourlyBookings.length > 0 ? ' tl-cell-multi' : ''}`}
+            onClick={() => onRoomClick(room)}
+          >
             {/* Daily booking block */}
             {dailyBooking && (() => {
               const isStart = dailyBooking.checkIn === date

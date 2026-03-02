@@ -44,6 +44,7 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState('all')
   const [selectedRoom, setSelectedRoom] = useState(null)
+  const [clickedDate, setClickedDate] = useState(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [adminDeleteOpen, setAdminDeleteOpen] = useState(false)
   const [viewDate, setViewDate] = useState(todayStr)
@@ -65,14 +66,16 @@ export default function App() {
     sessionStorage.removeItem(AUTH_KEY)
   }, [])
 
-  const handleRoomClick = useCallback((room) => {
+  const handleRoomClick = useCallback((room, date = null) => {
     setSelectedRoom(room)
+    setClickedDate(date)
     setModalOpen(true)
   }, [])
 
   const handleModalClose = useCallback(() => {
     setModalOpen(false)
     setSelectedRoom(null)
+    setClickedDate(null)
   }, [])
 
   // *** hooks ต้องอยู่ก่อน early return ทุกตัว ***
@@ -229,6 +232,7 @@ export default function App() {
           room={selectedRoomFull}
           currentUser={currentUser}
           onClose={handleModalClose}
+          initialCheckIn={clickedDate}
           onBook={(formData)        => addBooking(selectedRoomFull.id, { ...formData, bookedBy: currentUser?.displayName || '-' })}
           onCheckIn={(bookingId)    => checkIn(bookingId)}
           onCheckOut={(bookingId)   => checkOut(bookingId, selectedRoomFull.id)}

@@ -68,7 +68,7 @@ function findOverlap(existingBookings, newCheckIn, newCheckOut, newStayType, new
 }
 
 export default function BookingModal({
-  room, currentUser, onClose,
+  room, currentUser, onClose, initialCheckIn,
   onBook, onCheckIn, onCheckOut, onCancel, onEdit, onExtend, onCleaned,
 }) {
   const activeBooking = getActiveBooking(room)
@@ -79,13 +79,22 @@ export default function BookingModal({
     || room.status === STATUS.OCCUPIED
     || room.status === STATUS.LATE_CHECKOUT
 
-  const [form, setForm] = useState(() => ({
-    ...getDefaultForm(),
-    ...(activeBooking && isRoomActive ? {
-      ...activeBooking,
-      nights: diffDays(activeBooking.checkIn, activeBooking.checkOut),
-    } : {}),
-  }))
+  const [form, setForm] = useState(() => {
+    const base = getDefaultForm()
+    // ถ้าคลิกมาจาก Timeline cell ให้ดึงวันนั้นเป็น checkIn
+    if (initialCheckIn && !isRoomActive) {
+      base.checkIn  = initialCheckIn
+      base.checkOut = addDays(initialCheckIn, 1)
+      base.nights   = 1
+    }
+    return {
+      ...base,
+      ...(activeBooking && isRoomActive ? {
+        ...activeBooking,
+        nights: diffDays(activeBooking.checkIn, activeBooking.checkOut),
+      } : {}),
+    }
+  })
   const [editMode, setEditMode] = useState(false)
   const [editingPendingId, setEditingPendingId] = useState(null)
   const [pendingEditForm, setPendingEditForm]   = useState({})
