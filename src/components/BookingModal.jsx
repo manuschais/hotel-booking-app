@@ -253,8 +253,8 @@ export default function BookingModal({
   )
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
+    <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="modal" onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
 
         {/* Header */}
         <div className="modal-header" style={{ borderTopColor: statusColor }}>
