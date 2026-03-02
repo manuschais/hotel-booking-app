@@ -169,6 +169,8 @@ export function useSupabaseRooms() {
     if (fields.note        !== undefined) dbFields.note         = fields.note
     if (fields.carPlate    !== undefined) dbFields.car_plate    = fields.carPlate
     if (fields.carProvince !== undefined) dbFields.car_province = fields.carProvince
+    if (fields.checkIn     !== undefined) dbFields.check_in     = fields.checkIn
+    if (fields.checkOut    !== undefined) dbFields.check_out    = fields.checkOut
 
     const { error } = await supabase.from('bookings').update(dbFields).eq('id', bookingId)
     if (error) { console.error('updateBookingFields:', error); return }

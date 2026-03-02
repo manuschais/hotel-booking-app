@@ -46,6 +46,31 @@
   background: rgba(255,255,255,0.25);
   font-weight: 700;
 }
+.summary-date-label {
+  display: flex;
+  align-items: center;
+  margin-right: 4px;
+}
+.summary-today-tag {
+  background: rgba(255,255,255,0.2);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.35);
+  white-space: nowrap;
+}
+.summary-date-tag {
+  background: rgba(251,191,36,0.25);
+  color: #fef3c7;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(251,191,36,0.4);
+  white-space: nowrap;
+}
 
 .summary-dot {
   width: 10px;
@@ -1133,6 +1158,76 @@
 }
 .tl-range input:focus, .tl-range select:focus {
   outline: none; border-color: var(--primary);
+}
+
+/* ===== Timeline Filter Bar ===== */
+.tl-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 0 4px;
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+}
+.tl-zone-btns {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.tl-zone-btn {
+  padding: 5px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.tl-zone-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.tl-zone-btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+}
+.tl-room-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.tl-room-search-input {
+  padding: 5px 32px 5px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+  background: var(--surface-2);
+  color: var(--text);
+  width: 220px;
+}
+.tl-room-search-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+.tl-room-search-clear {
+  position: absolute;
+  right: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  padding: 2px 4px;
+  line-height: 1;
+}
+.tl-room-search-clear:hover { color: var(--text); }
+.tl-room-count {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  white-space: nowrap;
 }
 
 .timeline-table-wrap {

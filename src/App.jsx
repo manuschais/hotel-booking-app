@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react'
-import { ZONES, computeRoomStatus, getRoomStatusOnDate, getBookingOnDate } from './data/roomData'
+import { ZONES, getRoomStatusOnDate, getBookingOnDate } from './data/roomData'
 import { canCancel } from './data/users'
 import { useSupabaseRooms } from './hooks/useSupabaseRooms'
 import { todayLocal } from './utils/date'
@@ -82,11 +82,6 @@ export default function App() {
     return { ...r, status, _viewBooking: activeBookingOnDate }
   }), [rooms, viewDate])
 
-  // SummaryBar uses today's real-time counts
-  const todayRooms = useMemo(() =>
-    rooms.map(r => ({ ...r, status: computeRoomStatus(r) })),
-    [rooms]
-  )
 
   if (currentUser === undefined) return <LoginScreen onLogin={handleLogin} />
 
@@ -155,7 +150,7 @@ export default function App() {
             )}
           </div>
         </div>
-        <SummaryBar rooms={todayRooms} />
+        <SummaryBar rooms={liveRooms} isToday={isToday} viewDate={viewDate} />
       </header>
 
       <div className="app-body">

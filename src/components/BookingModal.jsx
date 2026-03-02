@@ -80,6 +80,8 @@ export default function BookingModal({
     } : {}),
   }))
   const [editMode, setEditMode] = useState(false)
+  const [editingPendingId, setEditingPendingId] = useState(null)
+  const [pendingEditForm, setPendingEditForm]   = useState({})
 
   const editable = canEdit(currentUser)
   const isAdmin  = canCancel(currentUser)
@@ -87,6 +89,60 @@ export default function BookingModal({
   // ยกเลิกได้: Admin หรือ คนที่จองไว้
   const canCancelThis = isAdmin ||
     (currentUser && activeBooking?.bookedBy === currentUser.displayName)
+
+  // ===== handlers สำหรับ pending bookings =====
+  const handleEditPending = (booking) => {
+    setEditingPendingId(booking.id)
+    setPendingEditForm({ ...booking, nights: diffDays(booking.checkIn, booking.checkOut) })
+  }
+
+  const handlePendingChange = (e) => {
+    const { name, value } = e.target
+    if (name === 'checkIn') {
+      const newCheckOut = addDays(value, pendingEditForm.nights || 1)
+      setPendingEditForm(prev => ({ ...prev, checkIn: value, checkOut: newCheckOut }))
+      return
+    }
+    if (name === 'nights') {
+      const n = Math.max(1, parseInt(value) || 1)
+      setPendingEditForm(prev => ({ ...prev, nights: n, checkOut: addDays(prev.checkIn, n) }))
+      return
+    }
+    if (name === 'checkOut') {
+      setPendingEditForm(prev => ({ ...prev, checkOut: value, nights: diffDays(prev.checkIn, value) }))
+      return
+    }
+    setPendingEditForm(prev => ({ ...prev, [name]: value }))
+  }
+
+  const handleSavePendingEdit = () => {
+    // ตรวจ overlap (ยกเว้นตัวเอง)
+    const conflict = findOverlap(
+      room.bookings || [],
+      pendingEditForm.checkIn, pendingEditForm.checkOut,
+      pendingEditForm.stayType, pendingEditForm.checkInTime, pendingEditForm.checkOutTime,
+      editingPendingId,
+    )
+    if (conflict) {
+      alert(`❌ มีการจองทับซ้อน!\nมีการจองของ "${conflict.guestName}" ในช่วงวันที่นั้นอยู่แล้ว`)
+      return
+    }
+    onEdit(editingPendingId, {
+      guestName:   pendingEditForm.guestName,
+      phone:       pendingEditForm.phone,
+      carPlate:    pendingEditForm.carPlate,
+      carProvince: pendingEditForm.carProvince,
+      note:        pendingEditForm.note,
+      checkIn:     pendingEditForm.checkIn,
+      checkOut:    pendingEditForm.checkOut,
+    })
+    setEditingPendingId(null)
+  }
+
+  const handleCancelPending = (booking) => {
+    if (!confirm(`ยืนยันยกเลิกการจองของ "${booking.guestName}"?`)) return
+    onCancel(booking.id)
+  }
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -348,12 +404,39 @@ export default function BookingModal({
               {pendingBookings.length > 0 && (
                 <div className="pending-list">
                   <p className="pending-title">การจองถัดไป ({pendingBookings.length} รายการ)</p>
-                  {pendingBookings.map(b => (
-                    <div key={b.id} className="pending-item">
-                      <span>{b.guestName}</span>
-                      <span>{formatDate(b.checkIn)} → {formatDate(b.checkOut)}</span>
-                    </div>
-                  ))}
+                  {pendingBookings.map(b => {
+                    const isEditingThis = editingPendingId === b.id
+                    const canCancelB = isAdmin || (currentUser && b.bookedBy === currentUser.displayName)
+                    return (
+                      <div key={b.id} className={`pending-item ${isEditingThis ? 'pending-item-editing' : ''}`}>
+                        {isEditingThis ? (
+                          <PendingEditForm
+                            form={pendingEditForm}
+                            onChange={handlePendingChange}
+                            onSave={handleSavePendingEdit}
+                            onCancel={() => setEditingPendingId(null)}
+                          />
+                        ) : (
+                          <>
+                            <div className="pending-item-info">
+                              <span className="pending-ref">#{bookingRef(b.id)}</span>
+                              <span className="pending-name">{b.guestName}</span>
+                              {b.phone && <span className="pending-phone">{b.phone}</span>}
+                              <span className="pending-dates">{formatDate(b.checkIn)} → {formatDate(b.checkOut)}</span>
+                            </div>
+                            {editable && (
+                              <div className="pending-item-actions">
+                                <button className="btn-edit-sm" onClick={() => handleEditPending(b)}>✏️ แก้ไข</button>
+                                {canCancelB && (
+                                  <button className="btn-cancel-sm" onClick={() => handleCancelPending(b)}>✕ ยกเลิก</button>
+                                )}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               )}
 
@@ -427,12 +510,39 @@ export default function BookingModal({
                   {pendingBookings.length > 0 && (
                     <div className="pending-list">
                       <p className="pending-title">การจองถัดไป ({pendingBookings.length} รายการ)</p>
-                      {pendingBookings.map(b => (
-                        <div key={b.id} className="pending-item">
-                          <span>{b.guestName}</span>
-                          <span>{formatDate(b.checkIn)} → {formatDate(b.checkOut)}</span>
-                        </div>
-                      ))}
+                      {pendingBookings.map(b => {
+                        const isEditingThis = editingPendingId === b.id
+                        const canCancelB = isAdmin || (currentUser && b.bookedBy === currentUser.displayName)
+                        return (
+                          <div key={b.id} className={`pending-item ${isEditingThis ? 'pending-item-editing' : ''}`}>
+                            {isEditingThis ? (
+                              <PendingEditForm
+                                form={pendingEditForm}
+                                onChange={handlePendingChange}
+                                onSave={handleSavePendingEdit}
+                                onCancel={() => setEditingPendingId(null)}
+                              />
+                            ) : (
+                              <>
+                                <div className="pending-item-info">
+                                  <span className="pending-ref">#{bookingRef(b.id)}</span>
+                                  <span className="pending-name">{b.guestName}</span>
+                                  {b.phone && <span className="pending-phone">{b.phone}</span>}
+                                  <span className="pending-dates">{formatDate(b.checkIn)} → {formatDate(b.checkOut)}</span>
+                                </div>
+                                {editable && (
+                                  <div className="pending-item-actions">
+                                    <button className="btn-edit-sm" onClick={() => handleEditPending(b)}>✏️ แก้ไข</button>
+                                    {canCancelB && (
+                                      <button className="btn-cancel-sm" onClick={() => handleCancelPending(b)}>✕ ยกเลิก</button>
+                                    )}
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        )
+                      })}
                     </div>
                   )}
                 </div>
@@ -594,6 +704,58 @@ function ReadOnlyNotice() {
       👁️ โหมดดูอย่างเดียว — กรุณาเข้าสู่ระบบเพื่อจัดการการจอง
     </div>
   )
+}
+
+function PendingEditForm({ form, onChange, onSave, onCancel }) {
+  return (
+    <div className="pending-edit-form">
+      <div className="pending-edit-row">
+        <div className="form-group">
+          <label>ชื่อผู้เข้าพัก *</label>
+          <input name="guestName" value={form.guestName || ''} onChange={onChange} />
+        </div>
+        <div className="form-group">
+          <label>เบอร์โทรศัพท์</label>
+          <input name="phone" value={form.phone || ''} onChange={onChange} type="tel" />
+        </div>
+      </div>
+      <div className="pending-edit-row">
+        <div className="form-group">
+          <label>วันเช็คอิน</label>
+          <input name="checkIn" value={form.checkIn || ''} onChange={onChange} type="date" />
+        </div>
+        <div className="form-group">
+          <label>จำนวนคืน</label>
+          <input name="nights" value={form.nights || 1} onChange={onChange} type="number" min={1} />
+        </div>
+        <div className="form-group">
+          <label>วันเช็คเอ้าท์</label>
+          <input name="checkOut" value={form.checkOut || ''} onChange={onChange} type="date" min={form.checkIn} />
+        </div>
+      </div>
+      <div className="pending-edit-row">
+        <div className="form-group">
+          <label>ทะเบียนรถ</label>
+          <input name="carPlate" value={form.carPlate || ''} onChange={onChange} placeholder="เช่น กข 1234" />
+        </div>
+        <div className="form-group full-width">
+          <label>หมายเหตุ</label>
+          <input name="note" value={form.note || ''} onChange={onChange} />
+        </div>
+      </div>
+      <div className="pending-edit-actions">
+        <button className="btn-save-inline" onClick={onSave}>💾 บันทึก</button>
+        <button className="btn-edit-inline" onClick={onCancel}>ยกเลิก</button>
+      </div>
+    </div>
+  )
+}
+
+// แสดงเลขอ้างอิงจาก booking ID (bk_timestamp_xxxxx → XXXXX)
+function bookingRef(id) {
+  if (!id) return '?'
+  const parts = id.split('_')
+  return parts[parts.length - 1].toUpperCase()
 }
 
 function formatDate(dateStr) {
