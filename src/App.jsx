@@ -181,8 +181,8 @@ export default function App() {
 
         <nav className="tab-nav">
           {TABS.map(tab => (
-            // ซ่อน tab ประวัติจาก guest
-            tab.key === 'history' && !currentUser ? null : (
+            // ซ่อน tab ประวัติ — เฉพาะ Admin เท่านั้น
+            tab.key === 'history' && !isAdmin ? null : (
               <button
                 key={tab.key}
                 className={`tab-btn ${activeTab === tab.key ? 'active' : ''}`}

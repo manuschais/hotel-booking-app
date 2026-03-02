@@ -201,16 +201,22 @@ export function useSupabaseRooms() {
 
   // ===== HISTORY / SEARCH =====
 
-  // ค้นหา booking ตามชื่อ / เบอร์ / ทะเบียน
-  const searchBookings = useCallback(async (query) => {
-    if (!query?.trim()) return []
-    const q = query.trim()
-    const { data, error } = await supabase
+  // ค้นหา booking ตามชื่อ / เบอร์ / ทะเบียน และกรองตามช่วงวันที่
+  const searchBookings = useCallback(async ({ query, fromDate, toDate } = {}) => {
+    let req = supabase
       .from('bookings')
       .select('*, rooms(number, zone, type, building, floor)')
-      .or(`guest_name.ilike.%${q}%,phone.ilike.%${q}%,car_plate.ilike.%${q}%`)
       .order('check_in', { ascending: false })
-      .limit(100)
+      .limit(500)
+
+    if (query?.trim()) {
+      const q = query.trim()
+      req = req.or(`guest_name.ilike.%${q}%,phone.ilike.%${q}%,car_plate.ilike.%${q}%`)
+    }
+    if (fromDate) req = req.gte('check_in', fromDate)
+    if (toDate)   req = req.lte('check_in', toDate)
+
+    const { data, error } = await req
     if (error) { console.error('searchBookings:', error); return [] }
     return data.map(b => ({ ...fromDbBooking(b), room: b.rooms }))
   }, [])

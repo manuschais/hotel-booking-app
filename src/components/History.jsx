@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import * as XLSX from 'xlsx'
 import { STATUS_LABEL, STAY_TYPE } from '../data/roomData'
 
 function formatDate(dateStr) {
@@ -15,16 +16,29 @@ const STATUS_BADGE_COLOR = {
   no_show:   '#d1d5db',
 }
 
+const todayStr = () => new Date().toISOString().split('T')[0]
+
 export default function History({ searchBookings }) {
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState(null)
-  const [loading, setLoading] = useState(false)
+  const [query,    setQuery]    = useState('')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate,   setToDate]   = useState('')
+  const [results,  setResults]  = useState(null)
+  const [loading,  setLoading]  = useState(false)
+
+  const handleFromDateChange = (e) => {
+    const val = e.target.value
+    setFromDate(val)
+    // auto-fill toDate ด้วยค่าเดียวกัน (แต่ยังแก้ไขได้)
+    if (!toDate || toDate < val) setToDate(val)
+  }
 
   const handleSearch = async () => {
-    const q = query.trim()
-    if (!q) return
     setLoading(true)
-    const data = await searchBookings(q)
+    const data = await searchBookings({
+      query:    query.trim() || undefined,
+      fromDate: fromDate || undefined,
+      toDate:   toDate   || undefined,
+    })
     setResults(data)
     setLoading(false)
   }
@@ -33,11 +47,54 @@ export default function History({ searchBookings }) {
     if (e.key === 'Enter') handleSearch()
   }
 
+  const handleClear = () => {
+    setQuery('')
+    setFromDate('')
+    setToDate('')
+    setResults(null)
+  }
+
+  // ===== Export Excel =====
+  const handleExport = () => {
+    if (!results?.length) return
+
+    const rows = results.map(b => ({
+      'ห้อง':          b.room?.number || b.roomId,
+      'โซน':           zoneLabel(b.room?.zone),
+      'ชื่อผู้เข้าพัก': b.guestName || '',
+      'โทรศัพท์':      b.phone || '',
+      'ประเภท':        b.stayType === STAY_TYPE.HOURLY ? 'รายชั่วโมง' : 'รายคืน',
+      'วันเช็คอิน':    b.checkIn || '',
+      'เวลาเช็คอิน':   b.stayType === STAY_TYPE.HOURLY ? (b.checkInTime || '') : '13:00',
+      'วันเช็คเอ้าท์': b.stayType === STAY_TYPE.HOURLY ? b.checkIn : (b.checkOut || ''),
+      'เวลาเช็คเอ้าท์':b.checkOutTime || '12:00',
+      'จำนวนคน':      b.adults || 1,
+      'สถานะ':         STATUS_LABEL[b.status] || b.status,
+      'ทะเบียนรถ':    b.carPlate || '',
+      'จังหวัด':       b.carProvince || '',
+      'ผู้รับจอง':     b.bookedBy || '',
+      'หมายเหตุ':      b.note || '',
+    }))
+
+    const ws = XLSX.utils.json_to_sheet(rows)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'ประวัติการจอง')
+
+    // ชื่อไฟล์ตามช่วงวันที่ที่ค้นหา
+    const label = fromDate && toDate
+      ? `${fromDate}_to_${toDate}`
+      : todayStr()
+    XLSX.writeFile(wb, `booking_history_${label}.xlsx`)
+  }
+
+  const hasFilter = query.trim() || fromDate || toDate
+
   return (
     <div className="history-container">
       <h2 className="history-title">📜 ประวัติการจอง</h2>
-      <p className="history-desc">ค้นหาประวัติการเข้าพักด้วยชื่อผู้เข้าพัก, เบอร์โทรศัพท์ หรือทะเบียนรถ</p>
+      <p className="history-desc">ค้นหาประวัติด้วยชื่อ, เบอร์โทร, ทะเบียนรถ หรือเลือกช่วงวันที่</p>
 
+      {/* ===== Search Bar ===== */}
       <div className="history-search-bar">
         <input
           className="history-search-input"
@@ -47,18 +104,46 @@ export default function History({ searchBookings }) {
           onKeyDown={handleKeyDown}
           placeholder="ชื่อ / เบอร์โทร / ทะเบียนรถ..."
         />
+      </div>
+
+      {/* ===== Date Range ===== */}
+      <div className="history-date-range">
+        <div className="history-date-field">
+          <label>จากวันที่</label>
+          <input
+            type="date"
+            value={fromDate}
+            onChange={handleFromDateChange}
+            max={todayStr()}
+          />
+        </div>
+        <span className="history-date-sep">—</span>
+        <div className="history-date-field">
+          <label>ถึงวันที่</label>
+          <input
+            type="date"
+            value={toDate}
+            onChange={e => setToDate(e.target.value)}
+            min={fromDate || undefined}
+            max={todayStr()}
+          />
+        </div>
         <button
           className="history-search-btn"
           onClick={handleSearch}
-          disabled={loading || !query.trim()}
+          disabled={loading || !hasFilter}
         >
           {loading ? 'กำลังค้นหา...' : '🔍 ค้นหา'}
         </button>
+        {hasFilter && (
+          <button className="history-clear-btn" onClick={handleClear}>✕ ล้าง</button>
+        )}
       </div>
 
+      {/* ===== Empty State ===== */}
       {results === null && (
         <div className="history-empty">
-          <p>พิมพ์ชื่อ, เบอร์โทร หรือทะเบียนรถแล้วกด ค้นหา</p>
+          <p>กรอกชื่อ / เบอร์โทร / ทะเบียนรถ หรือเลือกช่วงวันที่ แล้วกด ค้นหา</p>
         </div>
       )}
 
@@ -68,9 +153,15 @@ export default function History({ searchBookings }) {
         </div>
       )}
 
+      {/* ===== Results ===== */}
       {results !== null && results.length > 0 && (
         <div className="history-results">
-          <p className="history-count">พบ {results.length} รายการ</p>
+          <div className="history-results-header">
+            <p className="history-count">พบ {results.length} รายการ</p>
+            <button className="history-export-btn" onClick={handleExport}>
+              📊 ส่งออก Excel
+            </button>
+          </div>
           <div className="history-table-wrapper">
             <table className="history-table">
               <thead>
@@ -136,8 +227,8 @@ export default function History({ searchBookings }) {
 }
 
 function zoneLabel(zone) {
-  if (zone === 'resort') return 'รีสอร์ท'
+  if (zone === 'resort')     return 'รีสอร์ท'
   if (zone === 'building_a') return 'ตึก A'
   if (zone === 'building_b') return 'ตึก B'
-  return zone
+  return zone || ''
 }
