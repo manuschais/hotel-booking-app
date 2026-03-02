@@ -62,9 +62,9 @@ export default function LoginScreen({ onLogin }) {
 
         <div className="login-hint">
           <p>บัญชีทดสอบ:</p>
-          <code>admin / admin1234</code>
-          <code>user1 / user1234</code>
-          <code>user2 / user2234</code>
+          <code>admin / </code>
+          <code>user1 / </code>
+          <code>user2 / </code>
         </div>
       </div>
     </div>

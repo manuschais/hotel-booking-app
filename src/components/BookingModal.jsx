@@ -1,7 +1,14 @@
 import { useState } from 'react'
-import { STATUS, STATUS_LABEL, STATUS_COLOR, HOURLY_COLOR, STAY_TYPE, newBookingId, getActiveBooking } from '../data/roomData'
+import { STATUS, STATUS_LABEL, STATUS_COLOR, HOURLY_COLOR, STAY_TYPE, getActiveBooking } from '../data/roomData'
 import { canEdit, canCancel } from '../data/users'
 import { PROVINCES } from '../data/provinces'
+
+// เพิ่ม N วันให้ date string
+function addDays(dateStr, n) {
+  const d = new Date(dateStr + 'T00:00:00')
+  d.setDate(d.getDate() + n)
+  return d.toISOString().split('T')[0]
+}
 
 const todayStr = () => new Date().toISOString().split('T')[0]
 const tomorrowStr = () => {
@@ -33,7 +40,10 @@ const DEFAULT_FORM = {
   stayType: STAY_TYPE.DAILY,
 }
 
-export default function BookingModal({ room, currentUser, onClose, onUpdate }) {
+export default function BookingModal({
+  room, currentUser, onClose,
+  onBook, onCheckIn, onCheckOut, onCancel, onEdit, onExtend, onCleaned,
+}) {
   const activeBooking = getActiveBooking(room)
   const [form, setForm] = useState({ ...DEFAULT_FORM, ...activeBooking })
   const [editMode, setEditMode] = useState(false)
@@ -44,7 +54,6 @@ export default function BookingModal({ room, currentUser, onClose, onUpdate }) {
   const handleChange = (e) => {
     const { name, value } = e.target
     if (name === 'stayType') {
-      // เปลี่ยนประเภทพัก → รีเซ็ตเวลาให้ตรงกับประเภท
       const timeDefaults = value === STAY_TYPE.HOURLY
         ? getHourlyDefaults()
         : { checkInTime: '13:00', checkOutTime: '12:00' }
@@ -64,19 +73,11 @@ export default function BookingModal({ room, currentUser, onClose, onUpdate }) {
       alert('กรุณาระบุเวลาเช็คเอ้าท์'); return
     }
 
-    const newBooking = {
-      id: newBookingId(),
+    const bookingData = {
       ...form,
-      // รายวัน: บังคับเวลาเข้า 13:00 / ออก 12:00 เสมอ
       ...(form.stayType === STAY_TYPE.DAILY ? { checkInTime: '13:00', checkOutTime: '12:00' } : {}),
-      bookedBy: currentUser?.displayName || '-',
-      status: STATUS.BOOKED,
     }
-
-    onUpdate(room.id, (r) => ({
-      ...r,
-      bookings: [...(r.bookings || []), newBooking],
-    }))
+    onBook(bookingData)
     onClose()
   }
 
@@ -85,74 +86,75 @@ export default function BookingModal({ room, currentUser, onClose, onUpdate }) {
     if (!form.guestName.trim()) { alert('กรุณากรอกชื่อผู้เข้าพัก'); return }
     if (!form.checkOut) { alert('กรุณาเลือกวันที่เช็คเอ้าท์'); return }
 
-    const newBooking = {
-      id: newBookingId(),
+    const bookingData = {
       ...form,
       ...(form.stayType === STAY_TYPE.DAILY ? { checkInTime: '13:00', checkOutTime: '12:00' } : {}),
-      bookedBy: currentUser?.displayName || '-',
-      status: STATUS.BOOKED,
     }
-
-    onUpdate(room.id, (r) => ({
-      ...r,
-      bookings: [...(r.bookings || []), newBooking],
-    }))
+    onBook(bookingData)
     onClose()
   }
 
   // ===== เช็คอิน =====
   const handleCheckIn = () => {
     if (!activeBooking) return
-    onUpdate(room.id, (r) => ({
-      ...r,
-      bookings: r.bookings.map(b =>
-        b.id === activeBooking.id ? { ...b, status: STATUS.OCCUPIED } : b
-      ),
-    }))
+    onCheckIn(activeBooking.id)
     onClose()
   }
 
   // ===== เช็คเอ้าท์ =====
   const handleCheckOut = () => {
     if (!activeBooking) return
-    onUpdate(room.id, (r) => {
-      const remaining = r.bookings.filter(b => b.id !== activeBooking.id)
-      return { ...r, bookings: remaining, status: STATUS.CLEANING }
-    })
+    onCheckOut(activeBooking.id)
     onClose()
   }
 
   // ===== ทำความสะอาดเสร็จ =====
   const handleCleaned = () => {
-    onUpdate(room.id, (r) => ({ ...r, status: STATUS.AVAILABLE }))
+    onCleaned()
     onClose()
   }
 
   // ===== ยกเลิกการจอง (admin only) =====
   const handleCancel = () => {
     if (!activeBooking) return
-    onUpdate(room.id, (r) => ({
-      ...r,
-      bookings: r.bookings.filter(b => b.id !== activeBooking.id),
-    }))
+    if (!confirm(`ยืนยันยกเลิกการจองของ "${activeBooking.guestName}"?`)) return
+    onCancel(activeBooking.id)
+    onClose()
+  }
+
+  // ===== ต่ออีก 1 คืน (รายวัน) =====
+  const handleExtendDaily = () => {
+    if (!activeBooking) return
+    const newCheckOut = addDays(activeBooking.checkOut || activeBooking.checkIn, 1)
+    onExtend(activeBooking.id, { checkOut: newCheckOut })
+    onClose()
+  }
+
+  // ===== ต่ออีก 1 ชั่วโมง (รายชั่วโมง) =====
+  const handleExtendHourly = () => {
+    if (!activeBooking) return
+    const [h, m] = (activeBooking.checkOutTime || '12:00').split(':').map(Number)
+    const newH = (h + 1) % 24
+    const newCheckOutTime = `${String(newH).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+    onExtend(activeBooking.id, { checkOutTime: newCheckOutTime })
     onClose()
   }
 
   // ===== บันทึกการแก้ไข =====
   const handleSaveEdit = () => {
     if (!activeBooking) return
-    onUpdate(room.id, (r) => ({
-      ...r,
-      bookings: r.bookings.map(b =>
-        b.id === activeBooking.id
-          ? { ...b, guestName: form.guestName, phone: form.phone, carPlate: form.carPlate, carProvince: form.carProvince, note: form.note }
-          : b
-      ),
-    }))
+    onEdit(activeBooking.id, {
+      guestName:   form.guestName,
+      phone:       form.phone,
+      carPlate:    form.carPlate,
+      carProvince: form.carProvince,
+      note:        form.note,
+    })
     setEditMode(false)
   }
 
   const isHourlyBooking = activeBooking?.stayType === STAY_TYPE.HOURLY
+  const isLateCheckout = room.status === STATUS.LATE_CHECKOUT
   const statusColor = isHourlyBooking
     ? (HOURLY_COLOR[room.status] || STATUS_COLOR[room.status])
     : STATUS_COLOR[room.status]
@@ -206,8 +208,8 @@ export default function BookingModal({ room, currentUser, onClose, onUpdate }) {
             </div>
           )}
 
-          {/* ===== จองแล้ว / เข้าพักแล้ว: ข้อมูล + ปุ่ม ===== */}
-          {(room.status === STATUS.BOOKED || room.status === STATUS.OCCUPIED) && activeBooking && (
+          {/* ===== จองแล้ว / เข้าพักแล้ว / รอออก: ข้อมูล + ปุ่ม ===== */}
+          {(room.status === STATUS.BOOKED || room.status === STATUS.OCCUPIED || room.status === STATUS.LATE_CHECKOUT) && activeBooking && (
             <div className="action-section">
               <div className="section-header-row">
                 <h3 className="section-label">ข้อมูลผู้เข้าพัก</h3>
@@ -221,6 +223,12 @@ export default function BookingModal({ room, currentUser, onClose, onUpdate }) {
                   </div>
                 )}
               </div>
+
+              {isLateCheckout && (
+                <div className="late-checkout-warning">
+                  ⚠️ เกินเวลาเช็คเอ้าท์แล้ว — รอลูกค้าออก
+                </div>
+              )}
 
               {editMode ? (
                 <EditGuestForm form={form} onChange={handleChange} />
@@ -273,8 +281,14 @@ export default function BookingModal({ room, currentUser, onClose, onUpdate }) {
                   {room.status === STATUS.BOOKED && (
                     <button className="btn-success" onClick={handleCheckIn}>🔑 เช็คอิน (เข้าพัก)</button>
                   )}
-                  {room.status === STATUS.OCCUPIED && (
+                  {(room.status === STATUS.OCCUPIED || room.status === STATUS.LATE_CHECKOUT) && (
                     <button className="btn-warning" onClick={handleCheckOut}>🚪 เช็คเอ้าท์</button>
+                  )}
+                  {(room.status === STATUS.OCCUPIED || room.status === STATUS.LATE_CHECKOUT) && !isHourlyBooking && (
+                    <button className="btn-extend" onClick={handleExtendDaily}>📅 ต่ออีก 1 คืน</button>
+                  )}
+                  {(room.status === STATUS.OCCUPIED || room.status === STATUS.LATE_CHECKOUT) && isHourlyBooking && (
+                    <button className="btn-extend" onClick={handleExtendHourly}>⏱ ต่ออีก 1 ชั่วโมง</button>
                   )}
                   {adminOnly && (
                     <button className="btn-danger" onClick={handleCancel}>❌ ยกเลิกการจอง</button>
@@ -307,6 +321,43 @@ export default function BookingModal({ room, currentUser, onClose, onUpdate }) {
             <div className="action-section">
               <h3 className="section-label">กำลังทำความสะอาด</h3>
               <p className="cleaning-msg">ห้องนี้อยู่ระหว่างการทำความสะอาด กรุณารอสักครู่</p>
+
+              {/* การจองที่รอรับแขกถัดไป */}
+              {activeBooking && (
+                <div className="next-booking-card">
+                  <p className="next-booking-title">📋 รอรับแขกถัดไป</p>
+                  <div className="booking-info">
+                    <InfoRow label="ชื่อผู้เข้าพัก" value={activeBooking.guestName} />
+                    <InfoRow label="โทรศัพท์"       value={activeBooking.phone || '-'} />
+                    <InfoRow label="ประเภท"          value={activeBooking.stayType === STAY_TYPE.HOURLY ? '⏱ รายชั่วโมง' : '🌙 รายคืน'} />
+                    {activeBooking.stayType === STAY_TYPE.DAILY ? (
+                      <>
+                        <InfoRow label="เช็คอิน"    value={`${formatDate(activeBooking.checkIn)} เวลา ${activeBooking.checkInTime || '13:00'} น.`} />
+                        <InfoRow label="เช็คเอ้าท์" value={`${formatDate(activeBooking.checkOut)} เวลา ${activeBooking.checkOutTime || '12:00'} น.`} />
+                      </>
+                    ) : (
+                      <>
+                        <InfoRow label="วันที่"   value={formatDate(activeBooking.checkIn)} />
+                        <InfoRow label="เวลาเข้า" value={activeBooking.checkInTime || '-'} />
+                        <InfoRow label="เวลาออก"  value={activeBooking.checkOutTime || '-'} />
+                      </>
+                    )}
+                    <InfoRow label="จำนวนคน" value={`${activeBooking.adults || 1} คน`} />
+                  </div>
+                  {pendingBookings.length > 0 && (
+                    <div className="pending-list">
+                      <p className="pending-title">การจองถัดไป ({pendingBookings.length} รายการ)</p>
+                      {pendingBookings.map(b => (
+                        <div key={b.id} className="pending-item">
+                          <span>{b.guestName}</span>
+                          <span>{formatDate(b.checkIn)} → {formatDate(b.checkOut)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {editable ? (
                 <div className="modal-actions">
                   <button className="btn-primary" onClick={handleCleaned}>✨ ทำความสะอาดเสร็จแล้ว (พร้อมจอง)</button>

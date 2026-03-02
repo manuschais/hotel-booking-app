@@ -9,6 +9,8 @@ import StatusLegend from './components/StatusLegend'
 import SummaryBar from './components/SummaryBar'
 import LoginScreen from './components/LoginScreen'
 import Timeline from './components/Timeline'
+import History from './components/History'
+import AdminDeleteModal from './components/AdminDeleteModal'
 import './App.css'
 
 const TABS = [
@@ -17,6 +19,7 @@ const TABS = [
   { key: ZONES.BUILDING_A,  label: '🏢 ตึก A' },
   { key: ZONES.BUILDING_B,  label: '🏢 ตึก B' },
   { key: 'timeline',        label: '📅 ตารางจอง' },
+  { key: 'history',         label: '📜 ประวัติ' },
 ]
 
 const AUTH_KEY = 'resort_auth'
@@ -29,12 +32,20 @@ function formatDateThai(dateStr) {
 }
 
 export default function App() {
-  const { rooms, loading, error, updateRoom, resetAllRooms } = useSupabaseRooms()
+  const {
+    rooms, loading, error,
+    addBooking, checkIn, checkOut, cancelBooking,
+    updateBookingFields, extendBooking,
+    setRoomAvailable,
+    searchBookings, deleteBookingsByRange,
+    resetAllRooms,
+  } = useSupabaseRooms()
 
   const [activeTab, setActiveTab] = useState('all')
   const [selectedRoom, setSelectedRoom] = useState(null)
   const [modalOpen, setModalOpen] = useState(false)
-  const [viewDate, setViewDate] = useState(todayStr)   // ← วันที่ดู dashboard
+  const [adminDeleteOpen, setAdminDeleteOpen] = useState(false)
+  const [viewDate, setViewDate] = useState(todayStr)
 
   const [currentUser, setCurrentUser] = useState(() => {
     try {
@@ -63,21 +74,14 @@ export default function App() {
     setSelectedRoom(null)
   }, [])
 
-  const handleClearAll = useCallback(() => {
-    if (window.confirm('ล้างข้อมูลการจองทั้งหมด? ไม่สามารถกู้คืนได้')) {
-      resetAllRooms()
-    }
-  }, [resetAllRooms])
-
   // *** hooks ต้องอยู่ก่อน early return ทุกตัว ***
-  // Rooms with status computed for the selected viewDate
   const liveRooms = useMemo(() => rooms.map(r => {
     const status = getRoomStatusOnDate(r, viewDate)
     const activeBookingOnDate = getBookingOnDate(r, viewDate)
     return { ...r, status, _viewBooking: activeBookingOnDate }
   }), [rooms, viewDate])
 
-  // SummaryBar always uses today's real-time counts
+  // SummaryBar uses today's real-time counts
   const todayRooms = useMemo(() =>
     rooms.map(r => ({ ...r, status: computeRoomStatus(r) })),
     [rooms]
@@ -112,6 +116,13 @@ export default function App() {
   const buildingBFloor1 = liveRooms.filter(r => r.zone === ZONES.BUILDING_B && r.floor === 1)
   const buildingBFloor2 = liveRooms.filter(r => r.zone === ZONES.BUILDING_B && r.floor === 2)
 
+  // ห้องที่ถูกเลือก (raw room พร้อม bookings)
+  const selectedRoomFull = selectedRoom
+    ? rooms.find(r => r.id === selectedRoom.id) || selectedRoom
+    : null
+
+  const isAdmin = canCancel(currentUser)
+
   return (
     <div className="app">
       <header className="app-header">
@@ -127,8 +138,10 @@ export default function App() {
                 <span className={`user-badge role-${currentUser.role}`}>
                   {currentUser.role === 'admin' ? '👑' : '👤'} {currentUser.displayName}
                 </span>
-                {canCancel(currentUser) && (
-                  <button className="btn-clear" onClick={handleClearAll}>🗑️ ล้างข้อมูล</button>
+                {isAdmin && (
+                  <button className="btn-clear" onClick={() => setAdminDeleteOpen(true)}>
+                    🗑️ จัดการข้อมูล
+                  </button>
                 )}
                 <button className="btn-logout" onClick={handleLogout}>ออกจากระบบ</button>
               </div>
@@ -168,18 +181,23 @@ export default function App() {
 
         <nav className="tab-nav">
           {TABS.map(tab => (
-            <button
-              key={tab.key}
-              className={`tab-btn ${activeTab === tab.key ? 'active' : ''}`}
-              onClick={() => setActiveTab(tab.key)}
-            >
-              {tab.label}
-            </button>
+            // ซ่อน tab ประวัติจาก guest
+            tab.key === 'history' && !currentUser ? null : (
+              <button
+                key={tab.key}
+                className={`tab-btn ${activeTab === tab.key ? 'active' : ''}`}
+                onClick={() => setActiveTab(tab.key)}
+              >
+                {tab.label}
+              </button>
+            )
           ))}
         </nav>
 
         <main className="main-content">
-          {activeTab === 'timeline' ? (
+          {activeTab === 'history' ? (
+            <History searchBookings={searchBookings} />
+          ) : activeTab === 'timeline' ? (
             <Timeline rooms={liveRooms} onRoomClick={handleRoomClick} />
           ) : (
             <>
@@ -209,12 +227,28 @@ export default function App() {
         </main>
       </div>
 
-      {modalOpen && selectedRoom && (
+      {/* ===== BOOKING MODAL ===== */}
+      {modalOpen && selectedRoomFull && (
         <BookingModal
-          room={rooms.find(r => r.id === selectedRoom.id) || selectedRoom}
+          room={selectedRoomFull}
           currentUser={currentUser}
           onClose={handleModalClose}
-          onUpdate={updateRoom}
+          onBook={(formData)        => addBooking(selectedRoomFull.id, { ...formData, bookedBy: currentUser?.displayName || '-' })}
+          onCheckIn={(bookingId)    => checkIn(bookingId)}
+          onCheckOut={(bookingId)   => checkOut(bookingId, selectedRoomFull.id)}
+          onCancel={(bookingId)     => cancelBooking(bookingId)}
+          onEdit={(bookingId, fields) => updateBookingFields(bookingId, fields)}
+          onExtend={(bookingId, changes) => extendBooking(bookingId, changes)}
+          onCleaned={()            => setRoomAvailable(selectedRoomFull.id)}
+        />
+      )}
+
+      {/* ===== ADMIN DELETE MODAL ===== */}
+      {adminDeleteOpen && (
+        <AdminDeleteModal
+          onClose={() => setAdminDeleteOpen(false)}
+          onDelete={deleteBookingsByRange}
+          onResetAll={resetAllRooms}
         />
       )}
     </div>

@@ -5,9 +5,9 @@ export const ROLES = {
 
 // Hardcoded users — change passwords here
 export const USERS = [
-  { id: 'admin',  password: 'admin1234', role: ROLES.ADMIN, displayName: 'Admin' },
-  { id: 'user1',  password: 'user1234',  role: ROLES.STAFF, displayName: 'พนักงาน 1' },
-  { id: 'user2',  password: 'user2234',  role: ROLES.STAFF, displayName: 'พนักงาน 2' },
+  { id: 'Admin',  password: 'admin1234', role: ROLES.ADMIN, displayName: 'Admin' },
+  { id: 'User1',  password: 'user1234',  role: ROLES.STAFF, displayName: 'พนักงาน 1' },
+  { id: 'User2',  password: 'user2234',  role: ROLES.STAFF, displayName: 'พนักงาน 2' },
 ]
 
 export function authenticate(username, password) {
