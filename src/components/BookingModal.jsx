@@ -72,9 +72,16 @@ export default function BookingModal({
   onBook, onCheckIn, onCheckOut, onCancel, onEdit, onExtend, onCleaned,
 }) {
   const activeBooking = getActiveBooking(room)
+
+  // pre-fill form ด้วย activeBooking เฉพาะเมื่อห้องเป็น BOOKED/OCCUPIED จริง
+  // ถ้าห้องเป็น AVAILABLE (แม้มีการจองล่วงหน้า) ให้ใช้ default form เปล่าๆ
+  const isRoomActive = room.status === STATUS.BOOKED
+    || room.status === STATUS.OCCUPIED
+    || room.status === STATUS.LATE_CHECKOUT
+
   const [form, setForm] = useState(() => ({
     ...getDefaultForm(),
-    ...(activeBooking ? {
+    ...(activeBooking && isRoomActive ? {
       ...activeBooking,
       nights: diffDays(activeBooking.checkIn, activeBooking.checkOut),
     } : {}),
@@ -82,6 +89,12 @@ export default function BookingModal({
   const [editMode, setEditMode] = useState(false)
   const [editingPendingId, setEditingPendingId] = useState(null)
   const [pendingEditForm, setPendingEditForm]   = useState({})
+
+  // form แยกสำหรับ "เพิ่มการจองต่อเนื่อง" — เริ่มที่ checkOut ของแขกปัจจุบัน
+  const [contForm, setContForm] = useState(() => {
+    const nextIn = activeBooking?.checkOut || todayStr()
+    return { ...getDefaultForm(), checkIn: nextIn, checkOut: addDays(nextIn, 1), nights: 1 }
+  })
 
   const editable = canEdit(currentUser)
   const isAdmin  = canCancel(currentUser)
@@ -208,16 +221,40 @@ export default function BookingModal({
     onClose()
   }
 
+  // ===== handler สำหรับ contForm (จองต่อเนื่อง) =====
+  const handleContChange = (e) => {
+    const { name, value } = e.target
+    if (name === 'stayType') {
+      const timeDefaults = value === STAY_TYPE.HOURLY ? getHourlyDefaults() : { checkInTime: '13:00', checkOutTime: '12:00' }
+      setContForm(prev => ({ ...prev, stayType: value, ...timeDefaults }))
+      return
+    }
+    if (name === 'checkIn' && contForm.stayType === STAY_TYPE.DAILY) {
+      setContForm(prev => ({ ...prev, checkIn: value, checkOut: addDays(value, prev.nights || 1) }))
+      return
+    }
+    if (name === 'nights') {
+      const n = Math.max(1, parseInt(value) || 1)
+      setContForm(prev => ({ ...prev, nights: n, checkOut: addDays(prev.checkIn, n) }))
+      return
+    }
+    if (name === 'checkOut' && contForm.stayType === STAY_TYPE.DAILY) {
+      setContForm(prev => ({ ...prev, checkOut: value, nights: diffDays(prev.checkIn, value) }))
+      return
+    }
+    setContForm(prev => ({ ...prev, [name]: value }))
+  }
+
   // ===== จองต่อเนื่อง (จากห้องที่จองแล้ว/เข้าพัก) =====
   const handleAddBooking = () => {
-    if (!form.guestName.trim()) { alert('กรุณากรอกชื่อผู้เข้าพัก'); return }
-    if (!form.checkOut) { alert('กรุณาเลือกวันที่เช็คเอ้าท์'); return }
+    if (!contForm.guestName.trim()) { alert('กรุณากรอกชื่อผู้เข้าพัก'); return }
+    if (!contForm.checkOut) { alert('กรุณาเลือกวันที่เช็คเอ้าท์'); return }
 
     // ตรวจสอบการจองทับซ้อน (ยกเว้น activeBooking ที่กำลังพักอยู่)
     const conflict = findOverlap(
       room.bookings || [],
-      form.checkIn, form.checkOut,
-      form.stayType, form.checkInTime, form.checkOutTime,
+      contForm.checkIn, contForm.checkOut,
+      contForm.stayType, contForm.checkInTime, contForm.checkOutTime,
       activeBooking?.id,
     )
     if (conflict) {
@@ -226,8 +263,8 @@ export default function BookingModal({
     }
 
     const bookingData = {
-      ...form,
-      ...(form.stayType === STAY_TYPE.DAILY ? { checkInTime: '13:00', checkOutTime: '12:00' } : {}),
+      ...contForm,
+      ...(contForm.stayType === STAY_TYPE.DAILY ? { checkInTime: '13:00', checkOutTime: '12:00' } : {}),
     }
     onBook(bookingData)
     onClose()
@@ -467,7 +504,7 @@ export default function BookingModal({
                   <details>
                     <summary>➕ เพิ่มการจองต่อเนื่อง</summary>
                     <div style={{ marginTop: 12 }}>
-                      <BookingForm form={form} onChange={handleChange} />
+                      <BookingForm form={contForm} onChange={handleContChange} />
                       <button className="btn-primary" style={{ marginTop: 8, width: '100%' }} onClick={handleAddBooking}>
                         ✅ บันทึกการจองต่อเนื่อง
                       </button>
