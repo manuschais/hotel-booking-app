@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import * as XLSX from 'xlsx'
 import { STATUS_LABEL, STAY_TYPE } from '../data/roomData'
+import { todayLocal } from '../utils/date'
+
+const todayStr = todayLocal
 
 function formatDate(dateStr) {
   if (!dateStr) return '-'
@@ -15,9 +18,6 @@ const STATUS_BADGE_COLOR = {
   cancelled: '#9ca3af',
   no_show:   '#d1d5db',
 }
-
-import { todayLocal } from '../utils/date'
-const todayStr = todayLocal
 
 export default function History({ searchBookings }) {
   const [query,    setQuery]    = useState('')
