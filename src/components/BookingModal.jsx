@@ -20,7 +20,7 @@ function diffDays(checkIn, checkOut) {
 }
 
 const todayStr = () => new Date().toISOString().split('T')[0]
-const tomorrowStr = () => addDays(new Date().toISOString().split('T')[0], 1)
+
 
 function getHourlyDefaults() {
   const h = new Date().getHours()
@@ -31,19 +31,23 @@ function getHourlyDefaults() {
   }
 }
 
-const DEFAULT_FORM = {
-  guestName: '',
-  phone: '',
-  checkIn: todayStr(),
-  checkOut: tomorrowStr(),
-  nights: 1,
-  checkInTime: '13:00',
-  checkOutTime: '12:00',
-  adults: 1,
-  note: '',
-  carPlate: '',
-  carProvince: '',
-  stayType: STAY_TYPE.DAILY,
+// ใช้ function แทน const เพื่อให้คำนวณวันที่ใหม่ทุกครั้งที่เปิด modal
+function getDefaultForm() {
+  const today = todayStr()
+  return {
+    guestName: '',
+    phone: '',
+    checkIn: today,
+    checkOut: addDays(today, 1),
+    nights: 1,
+    checkInTime: '13:00',
+    checkOutTime: '12:00',
+    adults: 1,
+    note: '',
+    carPlate: '',
+    carProvince: '',
+    stayType: STAY_TYPE.DAILY,
+  }
 }
 
 // ตรวจสอบการจองทับซ้อน
@@ -74,7 +78,7 @@ export default function BookingModal({
 }) {
   const activeBooking = getActiveBooking(room)
   const [form, setForm] = useState(() => ({
-    ...DEFAULT_FORM,
+    ...getDefaultForm(),
     ...(activeBooking ? {
       ...activeBooking,
       nights: diffDays(activeBooking.checkIn, activeBooking.checkOut),
@@ -302,7 +306,7 @@ export default function BookingModal({
                 {editable && editMode && (
                   <div style={{ display: 'flex', gap: 6 }}>
                     <button className="btn-save-inline" onClick={handleSaveEdit}>💾 บันทึก</button>
-                    <button className="btn-edit-inline" onClick={() => { setEditMode(false); setForm({ ...DEFAULT_FORM, ...activeBooking, nights: diffDays(activeBooking.checkIn, activeBooking.checkOut) }) }}>ยกเลิก</button>
+                    <button className="btn-edit-inline" onClick={() => { setEditMode(false); setForm({ ...getDefaultForm(), ...activeBooking, nights: diffDays(activeBooking.checkIn, activeBooking.checkOut) }) }}>ยกเลิก</button>
                   </div>
                 )}
               </div>
