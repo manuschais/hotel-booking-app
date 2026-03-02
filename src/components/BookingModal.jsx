@@ -517,6 +517,23 @@ export default function BookingModal({
             </div>
           )}
 
+          {/* ===== Orphan state: OCCUPIED/BOOKED แต่ไม่มี booking ===== */}
+          {(room.status === STATUS.OCCUPIED || room.status === STATUS.BOOKED) && !activeBooking && (
+            <div className="action-section">
+              <div className="late-checkout-warning">
+                ⚠️ ห้องนี้แสดงสถานะ "{statusLabel}" แต่ไม่พบข้อมูลการจอง<br />
+                อาจเป็นข้อมูลค้างจากระบบเก่า — กด "รีเซ็ต" เพื่อตั้งค่าใหม่
+              </div>
+              {isAdmin && (
+                <div className="modal-actions">
+                  <button className="btn-primary" onClick={handleCleaned}>♻️ รีเซ็ตเป็นห้องว่าง</button>
+                  <button className="btn-secondary" onClick={onClose}>ปิด</button>
+                </div>
+              )}
+              {!isAdmin && <ReadOnlyNotice />}
+            </div>
+          )}
+
           {/* ===== ทำความสะอาด ===== */}
           {room.status === STATUS.CLEANING && (
             <div className="action-section">

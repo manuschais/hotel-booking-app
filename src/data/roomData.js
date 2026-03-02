@@ -196,7 +196,9 @@ export function computeRoomStatus(room) {
   })
   if (hasActiveBooked) return STATUS.BOOKED
 
-  return room.status
+  // Fallback: ดึงจาก rooms.status แต่อนุญาตเฉพาะ CLEANING และ AVAILABLE
+  // ถ้า DB มี 'occupied'/'booked' โดยไม่มี booking รองรับ → ถือเป็น AVAILABLE
+  return room.status === STATUS.CLEANING ? STATUS.CLEANING : STATUS.AVAILABLE
 }
 
 // Compute room status on a specific date (for dashboard date picker)
