@@ -118,9 +118,10 @@ export function useSupabaseRooms() {
       status: STATUS.BOOKED,
       booked_by: formData.bookedBy || '',
     }
-    const { error } = await supabase.from('bookings').insert(row)
-    if (error) { console.error('addBooking:', error); alert('บันทึกไม่สำเร็จ: ' + error.message) }
+    const { data, error } = await supabase.from('bookings').insert(row).select().single()
+    if (error) { console.error('addBooking:', error); alert('บันทึกไม่สำเร็จ: ' + error.message); return null }
     // real-time จะ trigger fetchBookings เอง
+    return fromDbBooking(data)
   }, [])
 
   // เช็คอิน (BOOKED → OCCUPIED)
@@ -151,6 +152,16 @@ export function useSupabaseRooms() {
     setRawRooms(prev => prev.map(r => r.id === roomId ? { ...r, status: STATUS.CLEANING } : r))
   }, [])
 
+  // บันทึก ไม่มาตามกำหนด (mark no_show)
+  const markNoShow = useCallback(async (bookingId) => {
+    const { error } = await supabase
+      .from('bookings').update({ status: STATUS.NO_SHOW }).eq('id', bookingId)
+    if (error) { console.error('markNoShow:', error); return }
+    setRawBookings(prev => prev.map(b =>
+      b.id === bookingId ? { ...b, status: STATUS.NO_SHOW } : b
+    ))
+  }, [])
+
   // ยกเลิกการจอง (mark cancelled — ไม่ลบ)
   const cancelBooking = useCallback(async (bookingId) => {
     const { error } = await supabase
@@ -169,8 +180,10 @@ export function useSupabaseRooms() {
     if (fields.note        !== undefined) dbFields.note         = fields.note
     if (fields.carPlate    !== undefined) dbFields.car_plate    = fields.carPlate
     if (fields.carProvince !== undefined) dbFields.car_province = fields.carProvince
-    if (fields.checkIn     !== undefined) dbFields.check_in     = fields.checkIn
-    if (fields.checkOut    !== undefined) dbFields.check_out    = fields.checkOut
+    if (fields.checkIn      !== undefined) dbFields.check_in      = fields.checkIn
+    if (fields.checkOut     !== undefined) dbFields.check_out     = fields.checkOut
+    if (fields.checkInTime  !== undefined) dbFields.check_in_time  = fields.checkInTime
+    if (fields.checkOutTime !== undefined) dbFields.check_out_time = fields.checkOutTime
 
     const { error } = await supabase.from('bookings').update(dbFields).eq('id', bookingId)
     if (error) { console.error('updateBookingFields:', error); return }
@@ -204,7 +217,15 @@ export function useSupabaseRooms() {
 
   // ===== HISTORY / SEARCH =====
 
-  // ค้นหา booking ตามชื่อ / เบอร์ / ทะเบียน และกรองตามช่วงวันที่
+  // ลบ booking เดี่ยว (admin only — ประวัติหรือบัค)
+  const deleteBooking = useCallback(async (bookingId) => {
+    const { error } = await supabase.from('bookings').delete().eq('id', bookingId)
+    if (error) { console.error('deleteBooking:', error); return false }
+    setRawBookings(prev => prev.filter(b => b.id !== bookingId))
+    return true
+  }, [])
+
+  // ค้นหา booking ตามชื่อ / เบอร์ / ทะเบียน / เลขจอง และกรองตามช่วงวันที่
   const searchBookings = useCallback(async ({ query, fromDate, toDate } = {}) => {
     let req = supabase
       .from('bookings')
@@ -213,8 +234,15 @@ export function useSupabaseRooms() {
       .limit(500)
 
     if (query?.trim()) {
-      const q = query.trim()
-      req = req.or(`guest_name.ilike.%${q}%,phone.ilike.%${q}%,car_plate.ilike.%${q}%`)
+      const q = query.trim().replace(/^#/, '')
+      const qLow = q.toLowerCase()
+      // ค้นหาตัวเลขล้วน → ลองจับ booking_number ด้วย
+      const numOnly = /^\d+$/.test(q)
+      if (numOnly) {
+        req = req.or(`guest_name.ilike.%${qLow}%,phone.ilike.%${qLow}%,car_plate.ilike.%${qLow}%,booking_number.eq.${q}`)
+      } else {
+        req = req.or(`guest_name.ilike.%${qLow}%,phone.ilike.%${qLow}%,car_plate.ilike.%${qLow}%,id.ilike.%${qLow}%`)
+      }
     }
     if (fromDate) req = req.gte('check_in', fromDate)
     if (toDate)   req = req.lte('check_in', toDate)
@@ -263,7 +291,8 @@ export function useSupabaseRooms() {
     // Room operations
     setRoomAvailable,
     // History
-    searchBookings, deleteBookingsByRange,
+    markNoShow,
+    searchBookings, deleteBooking, deleteBookingsByRange,
     // Admin
     resetAllRooms,
   }

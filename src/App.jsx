@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react'
-import { ZONES, getRoomStatusOnDate, getBookingOnDate } from './data/roomData'
+import { ZONES, STATUS, getRoomStatusOnDate, getBookingOnDate } from './data/roomData'
 import { canCancel } from './data/users'
 import { useSupabaseRooms } from './hooks/useSupabaseRooms'
 import { todayLocal } from './utils/date'
@@ -11,7 +11,10 @@ import SummaryBar from './components/SummaryBar'
 import LoginScreen from './components/LoginScreen'
 import Timeline from './components/Timeline'
 import History from './components/History'
+import BookingDetailModal from './components/BookingDetailModal'
 import AdminDeleteModal from './components/AdminDeleteModal'
+import Report from './components/Report'
+import MultiBookingModal from './components/MultiBookingModal'
 import './App.css'
 
 const TABS = [
@@ -21,6 +24,7 @@ const TABS = [
   { key: ZONES.BUILDING_B,  label: '🏢 ตึก B' },
   { key: 'timeline',        label: '📅 ตารางจอง' },
   { key: 'history',         label: '📜 ประวัติ' },
+  { key: 'report',          label: '📊 รายงาน' },
 ]
 
 const AUTH_KEY = 'resort_auth'
@@ -38,7 +42,8 @@ export default function App() {
     addBooking, checkIn, checkOut, cancelBooking,
     updateBookingFields, extendBooking,
     setRoomAvailable,
-    searchBookings, deleteBookingsByRange,
+    markNoShow,
+    searchBookings, deleteBooking, deleteBookingsByRange,
     resetAllRooms,
   } = useSupabaseRooms()
 
@@ -46,8 +51,12 @@ export default function App() {
   const [selectedRoom, setSelectedRoom] = useState(null)
   const [clickedDate, setClickedDate] = useState(null)
   const [modalOpen, setModalOpen] = useState(false)
+  const [bookingDetailItem, setBookingDetailItem] = useState(null)
   const [adminDeleteOpen, setAdminDeleteOpen] = useState(false)
   const [viewDate, setViewDate] = useState(todayStr)
+  const [multiSelectMode, setMultiSelectMode] = useState(false)
+  const [selectedRoomIds, setSelectedRoomIds] = useState(new Set())
+  const [multiBookingOpen, setMultiBookingOpen] = useState(false)
 
   const [currentUser, setCurrentUser] = useState(() => {
     try {
@@ -66,16 +75,38 @@ export default function App() {
     sessionStorage.removeItem(AUTH_KEY)
   }, [])
 
+  const handleExitMultiSelect = useCallback(() => {
+    setMultiSelectMode(false)
+    setSelectedRoomIds(new Set())
+  }, [])
+
   const handleRoomClick = useCallback((room, date = null) => {
+    if (multiSelectMode) {
+      if (room.status !== STATUS.AVAILABLE) return
+      setSelectedRoomIds(prev => {
+        const next = new Set(prev)
+        next.has(room.id) ? next.delete(room.id) : next.add(room.id)
+        return next
+      })
+      return
+    }
     setSelectedRoom(room)
     setClickedDate(date)
     setModalOpen(true)
-  }, [])
+  }, [multiSelectMode])
 
   const handleModalClose = useCallback(() => {
     setModalOpen(false)
     setSelectedRoom(null)
     setClickedDate(null)
+  }, [])
+
+  const handleBookingDetail = useCallback((booking) => {
+    setBookingDetailItem(booking)
+  }, [])
+
+  const handleBookingDetailClose = useCallback(() => {
+    setBookingDetailItem(null)
   }, [])
 
   // *** hooks ต้องอยู่ก่อน early return ทุกตัว ***
@@ -180,28 +211,38 @@ export default function App() {
 
         <nav className="tab-nav">
           {TABS.map(tab => (
-            // ซ่อน tab ประวัติ — เฉพาะ Admin เท่านั้น
-            tab.key === 'history' && !isAdmin ? null : (
+            (tab.key === 'history' || tab.key === 'report') && !currentUser ? null : (
               <button
                 key={tab.key}
                 className={`tab-btn ${activeTab === tab.key ? 'active' : ''}`}
-                onClick={() => setActiveTab(tab.key)}
+                onClick={() => { setActiveTab(tab.key); if (multiSelectMode) handleExitMultiSelect() }}
               >
                 {tab.label}
               </button>
             )
           ))}
+          {['all', ZONES.RESORT, ZONES.BUILDING_A, ZONES.BUILDING_B].includes(activeTab) && currentUser && (
+            <button
+              className={`btn-multi-select ${multiSelectMode ? 'active' : ''}`}
+              onClick={() => multiSelectMode ? handleExitMultiSelect() : setMultiSelectMode(true)}
+            >
+              {multiSelectMode ? `✕ ออก (${selectedRoomIds.size})` : '🏠+ หลายห้อง'}
+            </button>
+          )}
         </nav>
 
         <main className="main-content">
-          {activeTab === 'history' ? (
-            <History searchBookings={searchBookings} />
+          {activeTab === 'report' ? (
+            <Report rooms={rooms} />
+          ) : activeTab === 'history' ? (
+            <History searchBookings={searchBookings} onBookingDetail={handleBookingDetail} />
           ) : activeTab === 'timeline' ? (
-            <Timeline rooms={liveRooms} onRoomClick={handleRoomClick} />
+            <Timeline rooms={liveRooms} onRoomClick={handleRoomClick} onBookingDetail={handleBookingDetail} />
           ) : (
             <>
               {(activeTab === 'all' || activeTab === ZONES.RESORT) && (
-                <ResortZone rooms={resortRooms} onRoomClick={handleRoomClick} viewDate={viewDate} />
+                <ResortZone rooms={resortRooms} onRoomClick={handleRoomClick} viewDate={viewDate}
+                  multiSelectMode={multiSelectMode} selectedRoomIds={selectedRoomIds} />
               )}
               {(activeTab === 'all' || activeTab === ZONES.BUILDING_A) && (
                 <BuildingZone
@@ -210,6 +251,7 @@ export default function App() {
                   floor2Rooms={buildingAFloor2}
                   onRoomClick={handleRoomClick}
                   viewDate={viewDate}
+                  multiSelectMode={multiSelectMode} selectedRoomIds={selectedRoomIds}
                 />
               )}
               {(activeTab === 'all' || activeTab === ZONES.BUILDING_B) && (
@@ -219,6 +261,7 @@ export default function App() {
                   floor2Rooms={buildingBFloor2}
                   onRoomClick={handleRoomClick}
                   viewDate={viewDate}
+                  multiSelectMode={multiSelectMode} selectedRoomIds={selectedRoomIds}
                 />
               )}
             </>
@@ -236,10 +279,27 @@ export default function App() {
           onBook={(formData)        => addBooking(selectedRoomFull.id, { ...formData, bookedBy: currentUser?.displayName || '-' })}
           onCheckIn={(bookingId)    => checkIn(bookingId)}
           onCheckOut={(bookingId)   => checkOut(bookingId, selectedRoomFull.id)}
+          onNoShow={(bookingId)     => markNoShow(bookingId)}
           onCancel={(bookingId)     => cancelBooking(bookingId)}
           onEdit={(bookingId, fields) => updateBookingFields(bookingId, fields)}
           onExtend={(bookingId, changes) => extendBooking(bookingId, changes)}
           onCleaned={()            => setRoomAvailable(selectedRoomFull.id)}
+        />
+      )}
+
+      {/* ===== BOOKING DETAIL MODAL (ประวัติ / แก้ไข / ลบ) ===== */}
+      {bookingDetailItem && (
+        <BookingDetailModal
+          booking={bookingDetailItem}
+          currentUser={currentUser}
+          onClose={handleBookingDetailClose}
+          onEdit={(bookingId, fields) => updateBookingFields(bookingId, fields)}
+          onDelete={(bookingId) => deleteBooking(bookingId)}
+          onCheckIn={(bookingId) => checkIn(bookingId)}
+          onCheckOut={(bookingId, roomId) => checkOut(bookingId, roomId)}
+          onCancel={(bookingId) => cancelBooking(bookingId)}
+          onExtend={(bookingId, changes) => extendBooking(bookingId, changes)}
+          onNoShow={(bookingId) => markNoShow(bookingId)}
         />
       )}
 
@@ -250,6 +310,38 @@ export default function App() {
           onDelete={deleteBookingsByRange}
           onResetAll={resetAllRooms}
         />
+      )}
+
+      {/* ===== MULTI-BOOKING MODAL ===== */}
+      {multiBookingOpen && (
+        <MultiBookingModal
+          rooms={liveRooms.filter(r => selectedRoomIds.has(r.id))}
+          currentUser={currentUser}
+          onClose={() => setMultiBookingOpen(false)}
+          onBook={async (formData) => {
+            await Promise.all(
+              [...selectedRoomIds].map(roomId =>
+                addBooking(roomId, { ...formData, bookedBy: currentUser?.displayName || '-' })
+              )
+            )
+            setMultiBookingOpen(false)
+            handleExitMultiSelect()
+          }}
+        />
+      )}
+
+      {/* ===== FLOATING MULTI-SELECT BAR ===== */}
+      {multiSelectMode && selectedRoomIds.size > 0 && (
+        <div className="floating-multi-bar">
+          <span className="multi-bar-count">🏠 {selectedRoomIds.size} ห้อง:</span>
+          <span className="multi-bar-rooms">
+            {liveRooms.filter(r => selectedRoomIds.has(r.id)).map(r => r.number).join(', ')}
+          </span>
+          <button className="btn-multi-book" onClick={() => setMultiBookingOpen(true)}>
+            ✅ จอง {selectedRoomIds.size} ห้อง
+          </button>
+          <button className="btn-multi-clear" onClick={() => setSelectedRoomIds(new Set())}>ล้าง</button>
+        </div>
       )}
     </div>
   )

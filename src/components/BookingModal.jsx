@@ -3,6 +3,7 @@ import { STATUS, STATUS_LABEL, STATUS_COLOR, HOURLY_COLOR, STAY_TYPE, getActiveB
 import { canEdit, canCancel } from '../data/users'
 import { PROVINCES } from '../data/provinces'
 import { todayLocal, addDaysLocal } from '../utils/date'
+import BookingSlip from './BookingSlip'
 
 const addDays  = addDaysLocal
 const todayStr = todayLocal
@@ -69,7 +70,7 @@ function findOverlap(existingBookings, newCheckIn, newCheckOut, newStayType, new
 
 export default function BookingModal({
   room, currentUser, onClose, initialCheckIn,
-  onBook, onCheckIn, onCheckOut, onCancel, onEdit, onExtend, onCleaned,
+  onBook, onCheckIn, onCheckOut, onCancel, onNoShow, onEdit, onExtend, onCleaned,
 }) {
   // ถ้าคลิกมาจาก Timeline cell → ดูสถานะของวันนั้น ไม่ใช่วันนี้
   const effectiveStatus  = initialCheckIn
@@ -104,6 +105,8 @@ export default function BookingModal({
   const [editMode, setEditMode] = useState(false)
   const [editingPendingId, setEditingPendingId] = useState(null)
   const [pendingEditForm, setPendingEditForm]   = useState({})
+  const [showSlip, setShowSlip] = useState(false)
+  const [slipData,  setSlipData]  = useState(null)
 
   // form แยกสำหรับ "เพิ่มการจองต่อเนื่อง" — เริ่มที่ checkOut ของแขกปัจจุบัน
   const [contForm, setContForm] = useState(() => {
@@ -127,8 +130,12 @@ export default function BookingModal({
   const handlePendingChange = (e) => {
     const { name, value } = e.target
     if (name === 'checkIn') {
-      const newCheckOut = addDays(value, pendingEditForm.nights || 1)
-      setPendingEditForm(prev => ({ ...prev, checkIn: value, checkOut: newCheckOut }))
+      if (pendingEditForm.stayType === STAY_TYPE.HOURLY) {
+        setPendingEditForm(prev => ({ ...prev, checkIn: value }))
+      } else {
+        const newCheckOut = addDays(value, pendingEditForm.nights || 1)
+        setPendingEditForm(prev => ({ ...prev, checkIn: value, checkOut: newCheckOut }))
+      }
       return
     }
     if (name === 'nights') {
@@ -155,14 +162,17 @@ export default function BookingModal({
       alert(`❌ มีการจองทับซ้อน!\nมีการจองของ "${conflict.guestName}" ในช่วงวันที่นั้นอยู่แล้ว`)
       return
     }
+    const isHourlyPending = pendingEditForm.stayType === STAY_TYPE.HOURLY
     onEdit(editingPendingId, {
-      guestName:   pendingEditForm.guestName,
-      phone:       pendingEditForm.phone,
-      carPlate:    pendingEditForm.carPlate,
-      carProvince: pendingEditForm.carProvince,
-      note:        pendingEditForm.note,
-      checkIn:     pendingEditForm.checkIn,
-      checkOut:    pendingEditForm.checkOut,
+      guestName:    pendingEditForm.guestName,
+      phone:        pendingEditForm.phone,
+      carPlate:     pendingEditForm.carPlate,
+      carProvince:  pendingEditForm.carProvince,
+      note:         pendingEditForm.note,
+      checkIn:      pendingEditForm.checkIn,
+      checkOut:     isHourlyPending ? null : pendingEditForm.checkOut,
+      checkInTime:  isHourlyPending ? pendingEditForm.checkInTime : '13:00',
+      checkOutTime: isHourlyPending ? pendingEditForm.checkOutTime : '12:00',
     })
     setEditingPendingId(null)
   }
@@ -179,7 +189,10 @@ export default function BookingModal({
       const timeDefaults = value === STAY_TYPE.HOURLY
         ? getHourlyDefaults()
         : { checkInTime: '13:00', checkOutTime: '12:00' }
-      setForm(prev => ({ ...prev, stayType: value, ...timeDefaults }))
+      const checkOutUpdate = value === STAY_TYPE.HOURLY
+        ? { checkOut: null }
+        : { checkOut: addDays(form.checkIn, form.nights || 1) }
+      setForm(prev => ({ ...prev, stayType: value, ...timeDefaults, ...checkOutUpdate }))
       return
     }
 
@@ -208,7 +221,7 @@ export default function BookingModal({
   }
 
   // ===== เพิ่ม Booking (จากห้องว่าง) =====
-  const handleBook = () => {
+  const handleBook = async () => {
     if (!form.guestName.trim()) { alert('กรุณากรอกชื่อผู้เข้าพัก'); return }
     if (form.stayType === STAY_TYPE.DAILY && !form.checkOut) {
       alert('กรุณาเลือกวันที่เช็คเอ้าท์'); return
@@ -230,10 +243,16 @@ export default function BookingModal({
 
     const bookingData = {
       ...form,
-      ...(form.stayType === STAY_TYPE.DAILY ? { checkInTime: '13:00', checkOutTime: '12:00' } : {}),
+      ...(form.stayType === STAY_TYPE.DAILY
+        ? { checkInTime: '13:00', checkOutTime: '12:00' }
+        : { checkOut: null }),
     }
-    onBook(bookingData)
-    onClose()
+    const saved = await onBook(bookingData)
+    const slipBooking = saved
+      ? { ...saved, room: { number: room.number, zone: room.zone } }
+      : { ...bookingData, room: { number: room.number, zone: room.zone } }
+    setSlipData(slipBooking)
+    setShowSlip(true)
   }
 
   // ===== handler สำหรับ contForm (จองต่อเนื่อง) =====
@@ -241,7 +260,10 @@ export default function BookingModal({
     const { name, value } = e.target
     if (name === 'stayType') {
       const timeDefaults = value === STAY_TYPE.HOURLY ? getHourlyDefaults() : { checkInTime: '13:00', checkOutTime: '12:00' }
-      setContForm(prev => ({ ...prev, stayType: value, ...timeDefaults }))
+      const checkOutUpdate = value === STAY_TYPE.HOURLY
+        ? { checkOut: null }
+        : { checkOut: addDays(contForm.checkIn, contForm.nights || 1) }
+      setContForm(prev => ({ ...prev, stayType: value, ...timeDefaults, ...checkOutUpdate }))
       return
     }
     if (name === 'checkIn' && contForm.stayType === STAY_TYPE.DAILY) {
@@ -261,9 +283,14 @@ export default function BookingModal({
   }
 
   // ===== จองต่อเนื่อง (จากห้องที่จองแล้ว/เข้าพัก) =====
-  const handleAddBooking = () => {
+  const handleAddBooking = async () => {
     if (!contForm.guestName.trim()) { alert('กรุณากรอกชื่อผู้เข้าพัก'); return }
-    if (!contForm.checkOut) { alert('กรุณาเลือกวันที่เช็คเอ้าท์'); return }
+    if (contForm.stayType === STAY_TYPE.DAILY && !contForm.checkOut) {
+      alert('กรุณาเลือกวันที่เช็คเอ้าท์'); return
+    }
+    if (contForm.stayType === STAY_TYPE.HOURLY && !contForm.checkOutTime) {
+      alert('กรุณาระบุเวลาเช็คเอ้าท์'); return
+    }
 
     // ตรวจสอบการจองทับซ้อน (ยกเว้น activeBooking ที่กำลังพักอยู่)
     const conflict = findOverlap(
@@ -279,10 +306,16 @@ export default function BookingModal({
 
     const bookingData = {
       ...contForm,
-      ...(contForm.stayType === STAY_TYPE.DAILY ? { checkInTime: '13:00', checkOutTime: '12:00' } : {}),
+      ...(contForm.stayType === STAY_TYPE.DAILY
+        ? { checkInTime: '13:00', checkOutTime: '12:00' }
+        : { checkOut: null }),
     }
-    onBook(bookingData)
-    onClose()
+    const saved = await onBook(bookingData)
+    const slipBooking = saved
+      ? { ...saved, room: { number: room.number, zone: room.zone } }
+      : { ...bookingData, room: { number: room.number, zone: room.zone } }
+    setSlipData(slipBooking)
+    setShowSlip(true)
   }
 
   // ===== เช็คอิน =====
@@ -351,11 +384,27 @@ export default function BookingModal({
     : STATUS_COLOR[effectiveStatus]
   const statusLabel = STATUS_LABEL[effectiveStatus]
 
+  // Orphan bookings: BOOKED แต่เลยกำหนดแล้ว (ไม่มาตามนัด)
+  // - รายวัน: checkIn ผ่านแล้วและ checkOut ≤ วันนี้
+  // - รายชั่วโมง: checkIn ก่อนวันนี้ หรือ checkIn = วันนี้แต่ checkOutTime ผ่านแล้ว
+  const today = todayStr()
+  const nowTime = new Date().toTimeString().slice(0, 5)
+  const orphanBookings = (room.bookings || []).filter(b => {
+    if (b.status !== STATUS.BOOKED) return false
+    if (b.stayType === STAY_TYPE.HOURLY) {
+      if (b.checkIn < today) return true
+      return b.checkIn === today && !!b.checkOutTime && b.checkOutTime <= nowTime
+    }
+    return b.checkIn < today && (!b.checkOut || b.checkOut <= today)
+  })
+  const orphanIds = new Set(orphanBookings.map(b => b.id))
+
   const pendingBookings = (room.bookings || []).filter(b =>
-    b.id !== activeBooking?.id && b.status === STATUS.BOOKED
+    b.id !== activeBooking?.id && b.status === STATUS.BOOKED && !orphanIds.has(b.id)
   )
 
   return (
+    <>
     <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="modal" onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
 
@@ -379,6 +428,35 @@ export default function BookingModal({
         </div>
 
         <div className="modal-body">
+
+          {/* ===== Orphan bookings: จองไว้แต่ไม่มา (เลยวันแล้ว) ===== */}
+          {orphanBookings.length > 0 && (
+            <div className="orphan-warning">
+              <p className="orphan-warning-title">⚠️ พบการจองที่เลยกำหนดแล้ว {orphanBookings.length} รายการ — ยังไม่ได้เช็คอิน</p>
+              {orphanBookings.map(b => (
+                <div key={b.id} className="orphan-item">
+                  <div className="orphan-info">
+                    <span className="orphan-ref">#{bookingRef(b)}</span>
+                    <span className="orphan-name">{b.guestName}</span>
+                    {b.phone && <span className="orphan-phone">{b.phone}</span>}
+                    <span className="orphan-dates">{formatDate(b.checkIn)} → {formatDate(b.checkOut)}</span>
+                  </div>
+                  {editable && (
+                    <div className="orphan-actions">
+                      <button
+                        className="btn-noshow-sm"
+                        onClick={() => { if (confirm(`บันทึก "${b.guestName}" เป็น "ไม่มาตามกำหนด"?`)) onNoShow(b.id) }}
+                      >🚫 ไม่มา</button>
+                      <button
+                        className="btn-cancel-sm"
+                        onClick={() => { if (confirm(`ยืนยันยกเลิกการจองของ "${b.guestName}"?`)) onCancel(b.id) }}
+                      >✕ ยกเลิก</button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* ===== ว่าง: ฟอร์มจอง ===== */}
           {effectiveStatus === STATUS.AVAILABLE && (
@@ -424,6 +502,10 @@ export default function BookingModal({
                 <EditGuestForm form={form} onChange={handleChange} />
               ) : (
                 <div className="booking-info">
+                  <div className="booking-ref-banner">
+                    <span className="booking-ref-label">เลขที่จอง</span>
+                    <span className="booking-ref-number">#{bookingRef(activeBooking)}</span>
+                  </div>
                   <InfoRow label="ชื่อผู้เข้าพัก" value={activeBooking.guestName} />
                   <InfoRow label="โทรศัพท์"       value={activeBooking.phone || '-'} />
                   <InfoRow label="ประเภท"          value={activeBooking.stayType === STAY_TYPE.HOURLY ? '⏱ รายชั่วโมง' : '🌙 รายคืน'} />
@@ -471,10 +553,14 @@ export default function BookingModal({
                         ) : (
                           <>
                             <div className="pending-item-info">
-                              <span className="pending-ref">#{bookingRef(b.id)}</span>
+                              <span className="pending-ref">#{bookingRef(b)}</span>
                               <span className="pending-name">{b.guestName}</span>
                               {b.phone && <span className="pending-phone">{b.phone}</span>}
-                              <span className="pending-dates">{formatDate(b.checkIn)} → {formatDate(b.checkOut)}</span>
+                              <span className="pending-dates">
+                                {b.stayType === STAY_TYPE.HOURLY
+                                  ? `${formatDate(b.checkIn)} ${b.checkInTime || ''} → ${b.checkOutTime || ''}`
+                                  : `${formatDate(b.checkIn)} → ${formatDate(b.checkOut)}`}
+                              </span>
                             </div>
                             {editable && (
                               <div className="pending-item-actions">
@@ -509,6 +595,13 @@ export default function BookingModal({
                   {canCancelThis && (
                     <button className="btn-danger" onClick={handleCancel}>❌ ยกเลิกการจอง</button>
                   )}
+                  <button
+                    className="btn-slip-sm"
+                    onClick={() => {
+                      setSlipData({ ...activeBooking, room: { number: room.number, zone: room.zone } })
+                      setShowSlip(true)
+                    }}
+                  >🖨️ ใบจอง</button>
                   <button className="btn-secondary" onClick={onClose}>ปิด</button>
                 </div>
               )}
@@ -594,10 +687,14 @@ export default function BookingModal({
                             ) : (
                               <>
                                 <div className="pending-item-info">
-                                  <span className="pending-ref">#{bookingRef(b.id)}</span>
+                                  <span className="pending-ref">#{bookingRef(b)}</span>
                                   <span className="pending-name">{b.guestName}</span>
                                   {b.phone && <span className="pending-phone">{b.phone}</span>}
-                                  <span className="pending-dates">{formatDate(b.checkIn)} → {formatDate(b.checkOut)}</span>
+                                  <span className="pending-dates">
+                                {b.stayType === STAY_TYPE.HOURLY
+                                  ? `${formatDate(b.checkIn)} ${b.checkInTime || ''} → ${b.checkOutTime || ''}`
+                                  : `${formatDate(b.checkIn)} → ${formatDate(b.checkOut)}`}
+                              </span>
                                 </div>
                                 {editable && (
                                   <div className="pending-item-actions">
@@ -631,6 +728,11 @@ export default function BookingModal({
         </div>
       </div>
     </div>
+
+    {showSlip && slipData && (
+      <BookingSlip booking={slipData} onClose={() => { setShowSlip(false); onClose() }} />
+    )}
+  </>
   )
 }
 
@@ -776,6 +878,7 @@ function ReadOnlyNotice() {
 }
 
 function PendingEditForm({ form, onChange, onSave, onCancel }) {
+  const isHourly = form.stayType === STAY_TYPE.HOURLY
   return (
     <div className="pending-edit-form">
       <div className="pending-edit-row">
@@ -790,17 +893,32 @@ function PendingEditForm({ form, onChange, onSave, onCancel }) {
       </div>
       <div className="pending-edit-row">
         <div className="form-group">
-          <label>วันเช็คอิน</label>
+          <label>{isHourly ? 'วันที่' : 'วันเช็คอิน'}</label>
           <input name="checkIn" value={form.checkIn || ''} onChange={onChange} type="date" />
         </div>
-        <div className="form-group">
-          <label>จำนวนคืน</label>
-          <input name="nights" value={form.nights || 1} onChange={onChange} type="number" min={1} />
-        </div>
-        <div className="form-group">
-          <label>วันเช็คเอ้าท์</label>
-          <input name="checkOut" value={form.checkOut || ''} onChange={onChange} type="date" min={form.checkIn} />
-        </div>
+        {isHourly ? (
+          <>
+            <div className="form-group">
+              <label>เวลาเข้า</label>
+              <input name="checkInTime" value={form.checkInTime || ''} onChange={onChange} type="time" />
+            </div>
+            <div className="form-group">
+              <label>เวลาออก</label>
+              <input name="checkOutTime" value={form.checkOutTime || ''} onChange={onChange} type="time" />
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="form-group">
+              <label>จำนวนคืน</label>
+              <input name="nights" value={form.nights || 1} onChange={onChange} type="number" min={1} />
+            </div>
+            <div className="form-group">
+              <label>วันเช็คเอ้าท์</label>
+              <input name="checkOut" value={form.checkOut || ''} onChange={onChange} type="date" min={form.checkIn} />
+            </div>
+          </>
+        )}
       </div>
       <div className="pending-edit-row">
         <div className="form-group">
@@ -820,10 +938,18 @@ function PendingEditForm({ form, onChange, onSave, onCancel }) {
   )
 }
 
-// แสดงเลขอ้างอิงจาก booking ID (bk_timestamp_xxxxx → XXXXX)
-function bookingRef(id) {
-  if (!id) return '?'
-  const parts = id.split('_')
+// เลขที่จอง รูปแบบ YYMMRRRR เช่น 26030001
+// ถ้ายังไม่มี bookingNumber (booking เก่า) → ใช้ suffix ของ ID แทน
+function bookingRef(booking) {
+  if (!booking) return '?'
+  if (booking.bookingNumber) {
+    const d = new Date((booking.checkIn || '') + 'T00:00:00')
+    const yy = isNaN(d.getTime()) ? '??' : String(d.getFullYear()).slice(-2)
+    const mm = isNaN(d.getTime()) ? '??' : String(d.getMonth() + 1).padStart(2, '0')
+    const run = String(booking.bookingNumber).padStart(4, '0')
+    return `${yy}${mm}${run}`
+  }
+  const parts = (booking.id || '').split('_')
   return parts[parts.length - 1].toUpperCase()
 }
 

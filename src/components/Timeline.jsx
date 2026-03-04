@@ -23,7 +23,9 @@ const ZONE_FILTER_OPTIONS = [
   { key: ZONES.BUILDING_B,  label: '🏢 ตึก B' },
 ]
 
-export default function Timeline({ rooms, onRoomClick }) {
+const HISTORY_STATUSES = new Set(['completed', 'cancelled', 'no_show'])
+
+export default function Timeline({ rooms, onRoomClick, onBookingDetail }) {
   const [startDate, setStartDate] = useState(todayStr)
   const [days, setDays] = useState(7)
   const [zoneFilter, setZoneFilter] = useState('all')
@@ -141,6 +143,7 @@ export default function Timeline({ rooms, onRoomClick }) {
                       room={room}
                       dates={dates}
                       onRoomClick={onRoomClick}
+                      onBookingDetail={onBookingDetail}
                     />
                   )),
                 ]
@@ -153,12 +156,12 @@ export default function Timeline({ rooms, onRoomClick }) {
   )
 }
 
-function RoomRow({ room, dates, onRoomClick }) {
+function RoomRow({ room, dates, onRoomClick, onBookingDetail }) {
   const allBookings = room.bookings || []
 
   return (
     <tr className="tl-room-row">
-      {/* ชื่อห้อง: คลิกเปิด modal ปกติ (ไม่ระบุวัน) */}
+      {/* ชื่อห้อง: คลิกเปิด BookingModal (check-in/checkout/จอง) */}
       <td
         className="tl-room-name"
         onClick={() => onRoomClick(room)}
@@ -179,7 +182,7 @@ function RoomRow({ room, dates, onRoomClick }) {
           .filter(b => b.stayType === 'hourly' && b.checkIn === date)
           .sort((a, b) => (a.checkInTime || '').localeCompare(b.checkInTime || ''))
 
-        // ช่องว่าง: คลิกเพื่อจองพร้อมดึงวันที่เข้ามาเลย
+        // ช่องว่าง: คลิกเพื่อจองพร้อมดึงวันที่
         if (!dailyBooking && hourlyBookings.length === 0) {
           return (
             <td
@@ -193,12 +196,22 @@ function RoomRow({ room, dates, onRoomClick }) {
           )
         }
 
-        // ช่องที่มีการจอง: คลิกเปิด modal ปกติ
+        const isHistory = dailyBooking && HISTORY_STATUSES.has(dailyBooking.status)
         return (
           <td
             key={date}
-            className={`tl-cell${hourlyBookings.length > 0 ? ' tl-cell-multi' : ''}`}
-            onClick={() => onRoomClick(room)}
+            className={`tl-cell${hourlyBookings.length > 0 ? ' tl-cell-multi' : ''}${isHistory ? ' tl-cell-history' : ' tl-cell-active'}`}
+            // คลิก cell background → ถ้ามี daily booking ให้เปิด detail, ถ้ามีแต่ hourly ให้เปิดฟอร์มจอง
+            onClick={() => {
+              if (dailyBooking) {
+                onBookingDetail({ ...dailyBooking, room: { number: room.number, zone: room.zone } })
+              } else {
+                onRoomClick(room, date)
+              }
+            }}
+            title={dailyBooking
+              ? `${isHistory ? '📋' : '📅'} ${dailyBooking.guestName} — คลิกเพื่อดู/แก้ไข`
+              : `จองห้อง ${room.number} วันที่ ${date}`}
           >
             {/* Daily booking block */}
             {dailyBooking && (() => {
@@ -214,13 +227,17 @@ function RoomRow({ room, dates, onRoomClick }) {
                 </div>
               )
             })()}
-            {/* Hourly booking blocks — multiple per day */}
+            {/* Hourly booking blocks — แต่ละรายการคลิกแยกได้ */}
             {hourlyBookings.map(b => (
               <div
                 key={b.id}
                 className="tl-hourly-block"
                 style={{ backgroundColor: HOURLY_COLOR[b.status] || '#8b5cf6' }}
-                title={`${b.guestName}  ${b.checkInTime || ''}–${b.checkOutTime || ''}`}
+                title={`${b.guestName}  ${b.checkInTime || ''}–${b.checkOutTime || ''} — คลิกเพื่อดู/แก้ไข`}
+                onClick={e => {
+                  e.stopPropagation()
+                  onBookingDetail({ ...b, room: { number: room.number, zone: room.zone } })
+                }}
               >
                 <span className="tl-hourly-time">{b.checkInTime}</span>
                 <span className="tl-hourly-name">{b.guestName}</span>

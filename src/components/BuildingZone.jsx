@@ -1,6 +1,6 @@
 import RoomCard from './RoomCard'
 
-export default function BuildingZone({ building, floor1Rooms, floor2Rooms, onRoomClick }) {
+export default function BuildingZone({ building, floor1Rooms, floor2Rooms, onRoomClick, multiSelectMode, selectedRoomIds }) {
   const allRooms = [...floor1Rooms, ...floor2Rooms]
   const available = allRooms.filter(r => r.status === 'available').length
 
@@ -26,7 +26,13 @@ export default function BuildingZone({ building, floor1Rooms, floor2Rooms, onRoo
           </div>
           <div className="floor-grid">
             {floor2Rooms.map(room => (
-              <RoomCard key={room.id} room={room} onClick={onRoomClick} />
+              <RoomCard
+                key={room.id}
+                room={room}
+                onClick={onRoomClick}
+                multiSelectMode={multiSelectMode}
+                isSelected={selectedRoomIds?.has(room.id) ?? false}
+              />
             ))}
           </div>
         </div>
@@ -40,7 +46,13 @@ export default function BuildingZone({ building, floor1Rooms, floor2Rooms, onRoo
           </div>
           <div className="floor-grid">
             {floor1Rooms.map(room => (
-              <RoomCard key={room.id} room={room} onClick={onRoomClick} />
+              <RoomCard
+                key={room.id}
+                room={room}
+                onClick={onRoomClick}
+                multiSelectMode={multiSelectMode}
+                isSelected={selectedRoomIds?.has(room.id) ?? false}
+              />
             ))}
           </div>
         </div>

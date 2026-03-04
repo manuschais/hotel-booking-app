@@ -19,7 +19,7 @@ const STATUS_BADGE_COLOR = {
   no_show:   '#d1d5db',
 }
 
-export default function History({ searchBookings }) {
+export default function History({ searchBookings, onBookingDetail }) {
   const [query,    setQuery]    = useState('')
   const [fromDate, setFromDate] = useState('')
   const [toDate,   setToDate]   = useState('')
@@ -93,7 +93,7 @@ export default function History({ searchBookings }) {
   return (
     <div className="history-container">
       <h2 className="history-title">📜 ประวัติการจอง</h2>
-      <p className="history-desc">ค้นหาประวัติด้วยชื่อ, เบอร์โทร, ทะเบียนรถ หรือเลือกช่วงวันที่</p>
+      <p className="history-desc">ค้นหาด้วยชื่อ, เบอร์โทร, ทะเบียนรถ, เลขจอง (#REF) หรือช่วงวันที่ — คลิกแถวเพื่อดู/แก้ไข</p>
 
       {/* ===== Search Bar ===== */}
       <div className="history-search-bar">
@@ -103,7 +103,7 @@ export default function History({ searchBookings }) {
           value={query}
           onChange={e => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="ชื่อ / เบอร์โทร / ทะเบียนรถ..."
+          placeholder="ชื่อ / เบอร์โทร / ทะเบียนรถ / เลขจอง (#REF)..."
         />
       </div>
 
@@ -181,7 +181,12 @@ export default function History({ searchBookings }) {
               </thead>
               <tbody>
                 {results.map(b => (
-                  <tr key={b.id}>
+                  <tr
+                    key={b.id}
+                    className={onBookingDetail ? 'history-row-clickable' : ''}
+                    onClick={() => onBookingDetail?.(b)}
+                    title={onBookingDetail ? `คลิกเพื่อดู/แก้ไข — ${b.guestName}` : undefined}
+                  >
                     <td className="history-room">
                       <span className="history-room-num">{b.room?.number || b.roomId}</span>
                       {b.room?.zone && <span className="history-room-zone">{zoneLabel(b.room.zone)}</span>}

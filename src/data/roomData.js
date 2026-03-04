@@ -82,6 +82,7 @@ export function fromDbBooking(row) {
     bookedBy:       row.booked_by     ?? '',
     createdAt:      row.created_at,
     checkOutActual: row.check_out_actual ?? null,
+    bookingNumber:  row.booking_number  ?? null,
   }
 }
 
@@ -190,7 +191,10 @@ export function computeRoomStatus(room) {
   // ป้องกันบัก: จองวันเดิมแล้วไม่มาเช็คอิน พอวันถัดไปยังขึ้น "จองแล้ว"
   const hasActiveBooked = room.bookings?.some(b => {
     if (b.status !== STATUS.BOOKED) return false
-    if (b.stayType === STAY_TYPE.HOURLY) return b.checkIn === today
+    if (b.stayType === STAY_TYPE.HOURLY) {
+      // รายชั่วโมง: วันนี้เท่านั้น + เวลาออกยังไม่ถึง (ถ้าเวลาออกผ่านไปแล้วถือเป็น orphan)
+      return b.checkIn === today && (!b.checkOutTime || b.checkOutTime > nowTime)
+    }
     const checkOut = b.checkOut || b.checkIn
     return b.checkIn <= today && (b.checkOut ? today < checkOut : today <= checkOut)
   })

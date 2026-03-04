@@ -1,6 +1,6 @@
-import { STATUS_COLOR, STATUS_LABEL, HOURLY_COLOR, STAY_TYPE, getActiveBooking } from '../data/roomData'
+import { STATUS_COLOR, STATUS_LABEL, HOURLY_COLOR, STAY_TYPE, STATUS, getActiveBooking } from '../data/roomData'
 
-export default function RoomCard({ room, onClick }) {
+export default function RoomCard({ room, onClick, multiSelectMode, isSelected }) {
   const label = STATUS_LABEL[room.status]
   // Use _viewBooking (date-picker override) if present, else fall back to real active booking
   const displayBooking = room._viewBooking !== undefined ? room._viewBooking : getActiveBooking(room)
@@ -12,12 +12,21 @@ export default function RoomCard({ room, onClick }) {
     : STATUS_COLOR[room.status]
   const hasPending = (room.bookings || []).filter(b => b.id !== activeBooking?.id && b.status === 'booked').length > 0
 
+  const canBeSelected = multiSelectMode && room.status === STATUS.AVAILABLE
+
   return (
     <button
-      className={`room-card status-${room.status}`}
+      className={`room-card status-${room.status}${isSelected ? ' room-card-selected' : ''}${multiSelectMode && !canBeSelected ? ' room-card-dim' : ''}`}
       onClick={() => onClick(room)}
       title={`ห้อง ${room.number} — ${label}${displayBooking ? `\nผู้เข้าพัก: ${displayBooking.guestName}` : ''}`}
     >
+      {/* Multi-select checkmark */}
+      {multiSelectMode && canBeSelected && (
+        <div className={`multi-check${isSelected ? ' checked' : ''}`}>
+          {isSelected ? '✓' : ''}
+        </div>
+      )}
+
       <div className="room-card-top">
         <span className="room-number">{room.number}</span>
         <span className="room-status-dot" style={{ backgroundColor: color }} />
