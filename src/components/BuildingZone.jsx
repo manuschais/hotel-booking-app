@@ -1,6 +1,6 @@
 import RoomCard from './RoomCard'
 
-export default function BuildingZone({ building, floor1Rooms, floor2Rooms, onRoomClick, multiSelectMode, selectedRoomIds }) {
+export default function BuildingZone({ building, floor1Rooms, floor2Rooms, onRoomClick, multiSelectMode, selectedRoomIds, showGuest }) {
   const allRooms = [...floor1Rooms, ...floor2Rooms]
   const available = allRooms.filter(r => r.status === 'available').length
 
@@ -32,6 +32,7 @@ export default function BuildingZone({ building, floor1Rooms, floor2Rooms, onRoo
                 onClick={onRoomClick}
                 multiSelectMode={multiSelectMode}
                 isSelected={selectedRoomIds?.has(room.id) ?? false}
+                showGuest={showGuest}
               />
             ))}
           </div>
@@ -52,6 +53,7 @@ export default function BuildingZone({ building, floor1Rooms, floor2Rooms, onRoo
                 onClick={onRoomClick}
                 multiSelectMode={multiSelectMode}
                 isSelected={selectedRoomIds?.has(room.id) ?? false}
+                showGuest={showGuest}
               />
             ))}
           </div>

@@ -2341,6 +2341,13 @@
   opacity: 0.35;
   pointer-events: none;
 }
+.room-card-readonly {
+  cursor: default;
+}
+.room-card-readonly:hover {
+  transform: none;
+  box-shadow: none;
+}
 
 /* Checkmark indicator on room card */
 .multi-check {

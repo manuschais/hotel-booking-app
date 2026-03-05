@@ -89,6 +89,7 @@ export default function App() {
   }, [])
 
   const handleRoomClick = useCallback((room, date = null) => {
+    if (!currentUser) return
     if (multiSelectMode) {
       if (room.status !== STATUS.AVAILABLE) return
       setSelectedRoomIds(prev => {
@@ -219,7 +220,7 @@ export default function App() {
 
         <nav className="tab-nav">
           {TABS.map(tab => (
-            (tab.key === 'history' || tab.key === 'report' || tab.key === 'stock') && !currentUser ? null : (
+            (!currentUser && tab.key !== 'all') ? null : (
               <button
                 key={tab.key}
                 className={`tab-btn ${activeTab === tab.key ? 'active' : ''}`}
@@ -257,7 +258,7 @@ export default function App() {
             <>
               {(activeTab === 'all' || activeTab === ZONES.RESORT) && (
                 <ResortZone rooms={resortRooms} onRoomClick={handleRoomClick} viewDate={viewDate}
-                  multiSelectMode={multiSelectMode} selectedRoomIds={selectedRoomIds} />
+                  multiSelectMode={multiSelectMode} selectedRoomIds={selectedRoomIds} showGuest={!!currentUser} />
               )}
               {(activeTab === 'all' || activeTab === ZONES.BUILDING_A) && (
                 <BuildingZone
@@ -266,7 +267,7 @@ export default function App() {
                   floor2Rooms={buildingAFloor2}
                   onRoomClick={handleRoomClick}
                   viewDate={viewDate}
-                  multiSelectMode={multiSelectMode} selectedRoomIds={selectedRoomIds}
+                  multiSelectMode={multiSelectMode} selectedRoomIds={selectedRoomIds} showGuest={!!currentUser}
                 />
               )}
               {(activeTab === 'all' || activeTab === ZONES.BUILDING_B) && (
@@ -276,7 +277,7 @@ export default function App() {
                   floor2Rooms={buildingBFloor2}
                   onRoomClick={handleRoomClick}
                   viewDate={viewDate}
-                  multiSelectMode={multiSelectMode} selectedRoomIds={selectedRoomIds}
+                  multiSelectMode={multiSelectMode} selectedRoomIds={selectedRoomIds} showGuest={!!currentUser}
                 />
               )}
             </>

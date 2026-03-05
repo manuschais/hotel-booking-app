@@ -1,6 +1,6 @@
 import RoomCard from './RoomCard'
 
-export default function ResortZone({ rooms, onRoomClick, multiSelectMode, selectedRoomIds }) {
+export default function ResortZone({ rooms, onRoomClick, multiSelectMode, selectedRoomIds, showGuest }) {
   const available = rooms.filter(r => r.status === 'available').length
   const occupied = rooms.filter(r => r.status !== 'available').length
 
@@ -26,6 +26,7 @@ export default function ResortZone({ rooms, onRoomClick, multiSelectMode, select
             onClick={onRoomClick}
             multiSelectMode={multiSelectMode}
             isSelected={selectedRoomIds?.has(room.id) ?? false}
+            showGuest={showGuest}
           />
         ))}
       </div>

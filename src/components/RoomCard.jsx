@@ -1,6 +1,6 @@
 import { STATUS_COLOR, STATUS_LABEL, HOURLY_COLOR, STAY_TYPE, STATUS, getActiveBooking } from '../data/roomData'
 
-export default function RoomCard({ room, onClick, multiSelectMode, isSelected }) {
+export default function RoomCard({ room, onClick, multiSelectMode, isSelected, showGuest = true }) {
   const label = STATUS_LABEL[room.status]
   // Use _viewBooking (date-picker override) if present, else fall back to real active booking
   const displayBooking = room._viewBooking !== undefined ? room._viewBooking : getActiveBooking(room)
@@ -16,9 +16,9 @@ export default function RoomCard({ room, onClick, multiSelectMode, isSelected })
 
   return (
     <button
-      className={`room-card status-${room.status}${isSelected ? ' room-card-selected' : ''}${multiSelectMode && !canBeSelected ? ' room-card-dim' : ''}`}
+      className={`room-card status-${room.status}${isSelected ? ' room-card-selected' : ''}${multiSelectMode && !canBeSelected ? ' room-card-dim' : ''}${!showGuest ? ' room-card-readonly' : ''}`}
       onClick={() => onClick(room)}
-      title={`ห้อง ${room.number} — ${label}${displayBooking ? `\nผู้เข้าพัก: ${displayBooking.guestName}` : ''}`}
+      title={`ห้อง ${room.number} — ${label}${displayBooking && showGuest ? `\nผู้เข้าพัก: ${displayBooking.guestName}` : ''}`}
     >
       {/* Multi-select checkmark */}
       {multiSelectMode && canBeSelected && (
@@ -32,7 +32,7 @@ export default function RoomCard({ room, onClick, multiSelectMode, isSelected })
         <span className="room-status-dot" style={{ backgroundColor: color }} />
       </div>
       <span className="room-status-text">{label}</span>
-      {displayBooking && (
+      {displayBooking && showGuest && (
         <span className="room-guest">{displayBooking.guestName}</span>
       )}
       <div className="room-badges">
