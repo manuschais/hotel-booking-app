@@ -2442,3 +2442,35 @@
   font-size: 0.78rem;
   font-weight: 700;
 }
+
+/* Multi-booking conflict warning */
+.multi-conflict-box {
+  background: #fff1f2;
+  border: 1.5px solid #fca5a5;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-top: 12px;
+}
+.multi-conflict-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #dc2626;
+  margin: 0 0 8px 0;
+}
+.multi-conflict-item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 0;
+  border-top: 1px solid #fecaca;
+  font-size: 0.83rem;
+}
+.multi-conflict-room {
+  font-weight: 700;
+  color: #991b1b;
+  white-space: nowrap;
+  min-width: 60px;
+}
+.multi-conflict-detail {
+  color: #7f1d1d;
+}

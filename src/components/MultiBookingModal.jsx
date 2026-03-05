@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { STAY_TYPE } from '../data/roomData'
+import { STATUS, STAY_TYPE } from '../data/roomData'
 import { PROVINCES } from '../data/provinces'
 import { todayLocal, addDaysLocal } from '../utils/date'
 
@@ -30,9 +30,28 @@ function getDefaultForm() {
   }
 }
 
+function findOverlap(existingBookings, newCheckIn, newCheckOut, newStayType, newCheckInTime, newCheckOutTime) {
+  const active = existingBookings.filter(b =>
+    b.status === STATUS.BOOKED || b.status === STATUS.OCCUPIED
+  )
+  for (const b of active) {
+    if (newStayType === STAY_TYPE.DAILY && b.stayType === STAY_TYPE.DAILY) {
+      if (newCheckIn < b.checkOut && newCheckOut > b.checkIn) return b
+    } else if (newStayType === STAY_TYPE.HOURLY && b.stayType === STAY_TYPE.HOURLY) {
+      if (newCheckIn === b.checkIn && newCheckInTime < b.checkOutTime && newCheckOutTime > b.checkInTime) return b
+    } else if (newStayType === STAY_TYPE.DAILY && b.stayType === STAY_TYPE.HOURLY) {
+      if (newCheckIn <= b.checkIn && newCheckOut > b.checkIn) return b
+    } else if (newStayType === STAY_TYPE.HOURLY && b.stayType === STAY_TYPE.DAILY) {
+      if (b.checkIn <= newCheckIn && newCheckIn < b.checkOut) return b
+    }
+  }
+  return null
+}
+
 export default function MultiBookingModal({ rooms, currentUser, onClose, onBook }) {
   const [form, setForm] = useState(getDefaultForm)
   const [loading, setLoading] = useState(false)
+  const [conflicts, setConflicts] = useState([]) // [{ room, conflictBooking }]
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -71,6 +90,22 @@ export default function MultiBookingModal({ rooms, currentUser, onClose, onBook 
       alert('กรุณาระบุเวลาเช็คเอ้าท์'); return
     }
 
+    // ตรวจสอบการจองทับซ้อนทุกห้อง
+    const found = []
+    for (const room of rooms) {
+      const conflict = findOverlap(
+        room.bookings || [],
+        form.checkIn, form.checkOut,
+        form.stayType, form.checkInTime, form.checkOutTime,
+      )
+      if (conflict) found.push({ room, conflict })
+    }
+    if (found.length > 0) {
+      setConflicts(found)
+      return
+    }
+
+    setConflicts([])
     setLoading(true)
     try {
       const bookingData = {
@@ -190,6 +225,21 @@ export default function MultiBookingModal({ rooms, currentUser, onClose, onBook 
                 <textarea name="note" value={form.note} onChange={handleChange} placeholder="หมายเหตุเพิ่มเติม..." rows={2} />
               </div>
             </div>
+
+            {conflicts.length > 0 && (
+              <div className="multi-conflict-box">
+                <p className="multi-conflict-title">❌ พบการจองซ้ำในวันที่เลือก — กรุณาเปลี่ยนวันที่ หรือยกเลิกห้องด้านล่าง</p>
+                {conflicts.map(({ room, conflict }) => (
+                  <div key={room.id} className="multi-conflict-item">
+                    <span className="multi-conflict-room">ห้อง {room.number}</span>
+                    <span className="multi-conflict-detail">
+                      มีการจองของ <strong>{conflict.guestName}</strong>
+                      {' '}({conflict.checkIn}{conflict.checkOut ? ` → ${conflict.checkOut}` : ''})
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div className="modal-actions" style={{ marginTop: 16 }}>
               <button className="btn-primary" onClick={handleSubmit} disabled={loading}>
