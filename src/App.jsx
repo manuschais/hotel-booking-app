@@ -17,6 +17,7 @@ import Report from './components/Report'
 import MultiBookingModal from './components/MultiBookingModal'
 import Stock from './components/Stock'
 import { useSupabaseStock } from './hooks/useSupabaseStock'
+import HelpModal from './components/HelpModal'
 import './App.css'
 
 const TABS = [
@@ -61,6 +62,7 @@ export default function App() {
   const [modalOpen, setModalOpen] = useState(false)
   const [bookingDetailItem, setBookingDetailItem] = useState(null)
   const [adminDeleteOpen, setAdminDeleteOpen] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
   const [viewDate, setViewDate] = useState(todayStr)
   const [multiSelectMode, setMultiSelectMode] = useState(false)
   const [selectedRoomIds, setSelectedRoomIds] = useState(new Set())
@@ -171,6 +173,7 @@ export default function App() {
             <p>จัดการห้องพักทั้งหมด 88 ห้อง ใน 3 โซน</p>
           </div>
           <div className="header-actions">
+            <button className="btn-help" onClick={() => setHelpOpen(true)}>❓ คู่มือ</button>
             {currentUser ? (
               <div className="user-info">
                 <span className="db-badge">🟢 Online</span>
@@ -359,6 +362,9 @@ export default function App() {
           <button className="btn-multi-clear" onClick={() => setSelectedRoomIds(new Set())}>ล้าง</button>
         </div>
       )}
+
+      {/* ===== HELP MODAL ===== */}
+      {helpOpen && <HelpModal onClose={() => setHelpOpen(false)} />}
     </div>
   )
 }

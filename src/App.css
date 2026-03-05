@@ -2561,3 +2561,57 @@
 .stock-form-row { display: flex; gap: 10px; }
 .stock-form-row .form-group { flex: 1; }
 .stock-tx-current { margin: 0; font-size: 0.9rem; color: #374151; }
+
+/* ===== HELP MODAL ===== */
+.btn-help { padding: 6px 14px; border-radius: 20px; border: 1.5px solid rgba(255,255,255,0.4); background: rgba(255,255,255,0.12); color: white; cursor: pointer; font-size: 0.875rem; }
+.btn-help:hover { background: rgba(255,255,255,0.22); }
+
+.help-modal { background: white; border-radius: 16px; width: 92vw; max-width: 780px; max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 24px 64px rgba(0,0,0,0.25); }
+.help-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #e5e7eb; }
+.help-modal-header h2 { margin: 0; font-size: 1.1rem; font-weight: 700; color: #1e293b; }
+.help-modal-body { display: flex; flex: 1; overflow: hidden; }
+
+/* Sidebar nav */
+.help-nav { width: 200px; min-width: 160px; border-right: 1px solid #e5e7eb; padding: 12px 8px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+.help-nav-btn { text-align: left; padding: 8px 12px; border: none; background: transparent; border-radius: 8px; cursor: pointer; font-size: 0.82rem; color: #374151; line-height: 1.4; }
+.help-nav-btn:hover { background: #f3f4f6; }
+.help-nav-btn.active { background: #eff6ff; color: #2563eb; font-weight: 600; }
+
+/* Content */
+.help-content { flex: 1; padding: 20px 24px; overflow-y: auto; }
+.help-content-title { font-size: 1.05rem; font-weight: 700; color: #1e293b; margin: 0 0 16px; }
+.help-section-body h4 { font-size: 0.9rem; font-weight: 700; color: #374151; margin: 14px 0 6px; }
+.help-section-body h4:first-child { margin-top: 0; }
+.help-section-body p { font-size: 0.875rem; color: #6b7280; margin: 0 0 8px; }
+
+/* Status grid */
+.help-status-grid { display: flex; flex-direction: column; gap: 10px; }
+.help-status-item { display: flex; align-items: flex-start; gap: 10px; }
+.help-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; margin-top: 3px; }
+.help-status-item div strong { font-size: 0.875rem; color: #1e293b; display: block; }
+.help-status-item div p { font-size: 0.8rem; color: #6b7280; margin: 0; }
+
+/* Steps & lists */
+.help-steps { margin: 0 0 8px; padding-left: 20px; display: flex; flex-direction: column; gap: 5px; }
+.help-steps li { font-size: 0.875rem; color: #374151; }
+.help-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; }
+.help-list li { font-size: 0.875rem; color: #374151; }
+
+/* Tip */
+.help-tip { margin-top: 12px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 8px 12px; font-size: 0.82rem; color: #92400e; }
+
+/* Roles */
+.help-role-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+.help-role-card { border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px; }
+.help-role-badge { padding: 4px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 700; margin-bottom: 10px; display: inline-block; }
+.help-role-badge.admin { background: #fef3c7; color: #92400e; }
+.help-role-badge.staff { background: #ede9fe; color: #5b21b6; }
+.help-role-badge.guest { background: #f3f4f6; color: #374151; }
+
+/* Mobile responsive */
+@media (max-width: 600px) {
+  .help-modal-body { flex-direction: column; }
+  .help-nav { width: 100%; border-right: none; border-bottom: 1px solid #e5e7eb; flex-direction: row; overflow-x: auto; padding: 8px; }
+  .help-nav-btn { white-space: nowrap; font-size: 0.75rem; padding: 6px 10px; }
+  .help-content { padding: 14px 16px; }
+}
