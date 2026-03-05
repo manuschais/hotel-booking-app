@@ -188,6 +188,8 @@ function RoomRow({ room, dates, onRoomClick, onBookingDetail }) {
             <td
               key={date}
               className="tl-cell tl-cell-empty tl-cell-clickable"
+              role="button"
+              style={{ cursor: 'pointer' }}
               onClick={() => onRoomClick(room, date)}
               title={`จองห้อง ${room.number} วันที่ ${date}`}
             >
@@ -201,7 +203,8 @@ function RoomRow({ room, dates, onRoomClick, onBookingDetail }) {
           <td
             key={date}
             className={`tl-cell${hourlyBookings.length > 0 ? ' tl-cell-multi' : ''}${isHistory ? ' tl-cell-history' : ' tl-cell-active'}`}
-            // คลิก cell background → ถ้ามี daily booking ให้เปิด detail, ถ้ามีแต่ hourly ให้เปิดฟอร์มจอง
+            role="button"
+            style={{ cursor: 'pointer' }}
             onClick={() => {
               if (dailyBooking) {
                 onBookingDetail({ ...dailyBooking, room: { number: room.number, zone: room.zone } })
