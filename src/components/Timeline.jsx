@@ -26,7 +26,7 @@ const ZONE_FILTER_OPTIONS = [
 const HISTORY_STATUSES = new Set(['completed', 'cancelled', 'no_show'])
 
 export default function Timeline({ rooms, onRoomClick, onBookingDetail }) {
-  const [startDate, setStartDate] = useState(todayStr)
+  const [startDate, setStartDate] = useState(() => addDays(todayStr(), -1))
   const [days, setDays] = useState(7)
   const [zoneFilter, setZoneFilter] = useState('all')
   const [roomSearch, setRoomSearch] = useState('')
@@ -37,9 +37,9 @@ export default function Timeline({ rooms, onRoomClick, onBookingDetail }) {
     return arr
   }, [startDate, days])
 
-  const goBack = () => setStartDate(prev => addDays(prev, -days))
-  const goFwd  = () => setStartDate(prev => addDays(prev, days))
-  const goToday = () => setStartDate(todayStr())
+  const goBack  = () => setStartDate(prev => addDays(prev, -1))
+  const goFwd   = () => setStartDate(prev => addDays(prev, 1))
+  const goToday = () => setStartDate(addDays(todayStr(), -1))
 
   // Filter rooms by zone + room search
   const filteredRooms = useMemo(() => {
