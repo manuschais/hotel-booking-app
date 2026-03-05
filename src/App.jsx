@@ -15,6 +15,8 @@ import BookingDetailModal from './components/BookingDetailModal'
 import AdminDeleteModal from './components/AdminDeleteModal'
 import Report from './components/Report'
 import MultiBookingModal from './components/MultiBookingModal'
+import Stock from './components/Stock'
+import { useSupabaseStock } from './hooks/useSupabaseStock'
 import './App.css'
 
 const TABS = [
@@ -25,6 +27,7 @@ const TABS = [
   { key: 'timeline',        label: '📅 ตารางจอง' },
   { key: 'history',         label: '📜 ประวัติ' },
   { key: 'report',          label: '📊 รายงาน' },
+  { key: 'stock',           label: '📦 สต็อก' },
 ]
 
 const AUTH_KEY = 'resort_auth'
@@ -46,6 +49,11 @@ export default function App() {
     searchBookings, deleteBooking, deleteBookingsByRange,
     resetAllRooms,
   } = useSupabaseRooms()
+
+  const {
+    items: stockItems, transactions: stockTx, loading: stockLoading,
+    addItem, editItem, deleteItem, addTransaction,
+  } = useSupabaseStock()
 
   const [activeTab, setActiveTab] = useState('all')
   const [selectedRoom, setSelectedRoom] = useState(null)
@@ -211,7 +219,7 @@ export default function App() {
 
         <nav className="tab-nav">
           {TABS.map(tab => (
-            (tab.key === 'history' || tab.key === 'report') && !currentUser ? null : (
+            (tab.key === 'history' || tab.key === 'report' || tab.key === 'stock') && !currentUser ? null : (
               <button
                 key={tab.key}
                 className={`tab-btn ${activeTab === tab.key ? 'active' : ''}`}
@@ -232,7 +240,14 @@ export default function App() {
         </nav>
 
         <main className="main-content">
-          {activeTab === 'report' ? (
+          {activeTab === 'stock' ? (
+            <Stock
+              items={stockItems} transactions={stockTx} loading={stockLoading}
+              currentUser={currentUser}
+              addItem={addItem} editItem={editItem} deleteItem={deleteItem}
+              addTransaction={addTransaction}
+            />
+          ) : activeTab === 'report' ? (
             <Report rooms={rooms} />
           ) : activeTab === 'history' ? (
             <History searchBookings={searchBookings} onBookingDetail={handleBookingDetail} />
