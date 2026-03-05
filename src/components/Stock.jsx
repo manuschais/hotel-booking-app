@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import * as XLSX from 'xlsx'
 import { canCancel } from '../data/users'
 
 function formatDateTime(ts) {
@@ -10,6 +11,39 @@ function formatDateTime(ts) {
 
 const EMPTY_ITEM_FORM = { name: '', category: '', unit: 'ชิ้น', min_qty: 5, current_qty: 0 }
 const EMPTY_TX_FORM   = { quantity: 1, note: '' }
+
+function exportItemsToExcel(items) {
+  const rows = items.map(it => ({
+    'ชื่อรายการ':   it.name,
+    'หมวดหมู่':     it.category || '-',
+    'หน่วย':        it.unit,
+    'คงเหลือ':      it.current_qty,
+    'จำนวนขั้นต่ำ': it.min_qty,
+    'สถานะ':        it.current_qty < it.min_qty ? 'ต่ำกว่าขั้นต่ำ' : it.current_qty < it.min_qty * 1.5 ? 'ใกล้หมด' : 'ปกติ',
+  }))
+  const ws = XLSX.utils.json_to_sheet(rows)
+  ws['!cols'] = [{ wch: 20 }, { wch: 14 }, { wch: 8 }, { wch: 10 }, { wch: 14 }, { wch: 14 }]
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'สต็อกสินค้า')
+  XLSX.writeFile(wb, `stock_${new Date().toLocaleDateString('th-TH').replace(/\//g, '-')}.xlsx`)
+}
+
+function exportTxToExcel(transactions) {
+  const rows = transactions.map(tx => ({
+    'วันที่/เวลา':  tx.created_at ? new Date(tx.created_at).toLocaleString('th-TH') : '-',
+    'ชื่อรายการ':   tx.stock_items?.name || '-',
+    'ประเภท':       tx.type === 'in' ? 'รับเข้า' : 'เบิกออก',
+    'จำนวน':        tx.quantity,
+    'หน่วย':        tx.stock_items?.unit || '-',
+    'หมายเหตุ':     tx.note || '-',
+    'ผู้บันทึก':    tx.by_user || '-',
+  }))
+  const ws = XLSX.utils.json_to_sheet(rows)
+  ws['!cols'] = [{ wch: 20 }, { wch: 20 }, { wch: 10 }, { wch: 8 }, { wch: 8 }, { wch: 24 }, { wch: 14 }]
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'ประวัติการเคลื่อนไหว')
+  XLSX.writeFile(wb, `stock_history_${new Date().toLocaleDateString('th-TH').replace(/\//g, '-')}.xlsx`)
+}
 
 export default function Stock({ items, transactions, loading, currentUser, addItem, editItem, deleteItem, addTransaction }) {
   const [tab,       setTab]       = useState('stock')   // 'stock' | 'history'
@@ -104,9 +138,21 @@ export default function Stock({ items, transactions, loading, currentUser, addIt
     <div className="stock-wrap">
       <div className="stock-header-row">
         <h2 className="stock-title">📦 ระบบสต็อกสินค้า</h2>
-        {isAdmin && tab === 'stock' && (
-          <button className="btn-stock-add" onClick={openAddItem}>+ เพิ่มรายการ</button>
-        )}
+        <div style={{ display: 'flex', gap: 8 }}>
+          {tab === 'stock' && (
+            <button className="btn-stock-export" onClick={() => exportItemsToExcel(filteredItems)}>
+              📥 Export Excel
+            </button>
+          )}
+          {tab === 'history' && (
+            <button className="btn-stock-export" onClick={() => exportTxToExcel(filteredTx)}>
+              📥 Export Excel
+            </button>
+          )}
+          {isAdmin && tab === 'stock' && (
+            <button className="btn-stock-add" onClick={openAddItem}>+ เพิ่มรายการ</button>
+          )}
+        </div>
       </div>
 
       {/* Internal tabs */}

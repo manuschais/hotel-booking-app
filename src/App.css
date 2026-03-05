@@ -2615,3 +2615,6 @@
   .help-nav-btn { white-space: nowrap; font-size: 0.75rem; padding: 6px 10px; }
   .help-content { padding: 14px 16px; }
 }
+
+.btn-stock-export { background: #0f766e; color: white; border: none; padding: 7px 14px; border-radius: 8px; font-size: 0.875rem; cursor: pointer; }
+.btn-stock-export:hover { background: #0d6b63; }
